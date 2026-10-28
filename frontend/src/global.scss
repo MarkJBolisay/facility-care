@@ -1,0 +1,208 @@
+/*
+ * App Global CSS
+ * ----------------------------------------------------------------------------
+ * Put style rules here that you want to apply globally. These styles are for
+ * the entire app and not just one component. Additionally, this file can be
+ * used as an entry point to import other CSS/Sass files to be included in the
+ * output CSS.
+ * For more information on global stylesheets, visit the documentation:
+ * https://ionicframework.com/docs/layout/global-stylesheets
+ */
+
+/* Core CSS required for Ionic components to work properly */
+@import "@ionic/angular/css/core.css";
+
+/* Basic CSS for apps built with Ionic */
+@import "@ionic/angular/css/normalize.css";
+@import "@ionic/angular/css/structure.css";
+@import "@ionic/angular/css/typography.css";
+@import "@ionic/angular/css/display.css";
+
+/* Optional CSS utils that can be commented out */
+@import "@ionic/angular/css/padding.css";
+@import "@ionic/angular/css/float-elements.css";
+@import "@ionic/angular/css/text-alignment.css";
+@import "@ionic/angular/css/text-transformation.css";
+@import "@ionic/angular/css/flex-utils.css";
+
+/**
+ * Ionic Dark Mode
+ * -----------------------------------------------------
+ * For more info, please see:
+ * https://ionicframework.com/docs/theming/dark-mode
+ */
+
+/* @import "@ionic/angular/css/palettes/dark.always.css"; */
+/* @import "@ionic/angular/css/palettes/dark.class.css"; */
+@import '@ionic/angular/css/palettes/dark.system.css';
+
+/* ==========================================================================
+   FacilityCare app styles
+   ========================================================================== */
+
+:root {
+  --ion-color-primary: #1f6feb;
+  --ion-color-primary-rgb: 31, 111, 235;
+  --ion-color-primary-contrast: #ffffff;
+  --ion-color-primary-contrast-rgb: 255, 255, 255;
+  --ion-color-primary-shade: #1b62cf;
+  --ion-color-primary-tint: #357def;
+  --fc-surface: #ffffff;
+  --fc-page: #f4f6fa;
+  --fc-border: rgba(0, 0, 0, 0.08);
+  --fc-muted: #6b7280;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --fc-surface: #1c1f26;
+    --fc-page: #121418;
+    --fc-border: rgba(255, 255, 255, 0.08);
+    --fc-muted: #9aa3af;
+  }
+}
+
+ion-content.page {
+  --background: var(--fc-page);
+}
+
+.muted { color: var(--fc-muted); }
+.small { font-size: 0.85rem; }
+.pre-wrap { white-space: pre-wrap; }
+.mt-0 { margin-top: 0; }
+.section-title {
+  margin: 20px 4px 8px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fc-muted);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.section-title a { text-transform: none; letter-spacing: 0; font-weight: 600; text-decoration: none; }
+
+.panel {
+  background: var(--fc-surface);
+  border: 1px solid var(--fc-border);
+  border-radius: 14px;
+  padding: 14px 16px;
+  margin-bottom: 12px;
+}
+.panel ion-list { background: transparent; margin: 0 -16px; }
+.panel ion-item { --background: transparent; }
+
+ion-list.cards {
+  background: transparent;
+  padding: 0;
+}
+ion-list.cards ion-item {
+  --background: var(--fc-surface);
+  --border-color: transparent;
+  border: 1px solid var(--fc-border);
+  border-radius: 14px;
+  margin-bottom: 10px;
+}
+
+.pill {
+  font-weight: 600;
+  font-size: 0.7rem;
+  padding: 4px 8px;
+  border-radius: 999px;
+  text-transform: none;
+}
+.pills { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+
+/* Stat tiles */
+.stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+@media (min-width: 720px) {
+  .stat-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+.stat {
+  background: var(--fc-surface);
+  border: 1px solid var(--fc-border);
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+.stat-top { display: flex; align-items: center; gap: 6px; color: var(--fc-muted); font-size: 0.8rem; font-weight: 600; }
+.stat-top ion-icon { font-size: 1.1rem; }
+.stat-value { font-size: 1.8rem; font-weight: 700; margin-top: 4px; font-variant-numeric: tabular-nums; }
+@each $c in primary, success, warning, danger, tertiary, medium {
+  .stat.tone-#{$c} .stat-top ion-icon { color: var(--ion-color-#{$c}); }
+}
+
+/* Horizontal bars */
+.bar-row { margin: 10px 0; }
+.bar-head { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 4px; gap: 8px; }
+.bar-head span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar-track { height: 8px; border-radius: 999px; background: var(--fc-border); overflow: hidden; }
+.bar-fill { height: 100%; border-radius: 999px; transition: width 0.4s ease; }
+
+/* Trend chart */
+.trend-legend { display: flex; gap: 14px; font-size: 0.78rem; color: var(--fc-muted); margin-bottom: 8px; }
+.trend-legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+.dot.submitted, .trend-bar.submitted { background: var(--ion-color-primary); }
+.dot.completed, .trend-bar.completed { background: var(--ion-color-success); }
+.trend { display: flex; align-items: flex-end; gap: 6px; height: 150px; }
+.trend.dense { gap: 2px; }
+.trend-col { flex: 1; display: flex; flex-direction: column; align-items: center; height: 100%; min-width: 0; }
+.trend-bars { flex: 1; width: 100%; display: flex; align-items: flex-end; justify-content: center; gap: 2px; }
+.trend-bar { width: 42%; max-width: 16px; min-height: 2px; border-radius: 3px 3px 0 0; }
+.trend-label { font-size: 0.65rem; color: var(--fc-muted); margin-top: 4px; white-space: nowrap; }
+
+/* Empty state */
+.empty { text-align: center; padding: 48px 16px; color: var(--fc-muted); }
+.empty ion-icon { font-size: 48px; opacity: 0.5; }
+
+/* Photos */
+.photo-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.photo-grid .photo { position: relative; aspect-ratio: 1; border-radius: 10px; overflow: hidden; background: var(--fc-border); }
+.photo-grid img, .hero-photo { width: 100%; height: 100%; object-fit: cover; display: block; }
+.photo-grid .remove {
+  position: absolute; top: 4px; right: 4px; width: 26px; height: 26px; border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55); color: #fff; display: grid; place-items: center; border: 0;
+}
+.hero-photo { max-height: 260px; border-radius: 12px; margin-bottom: 12px; cursor: zoom-in; }
+.photo-add {
+  aspect-ratio: 1; border-radius: 10px; border: 2px dashed var(--fc-border); display: grid; place-items: center;
+  color: var(--fc-muted); background: transparent; font-size: 0.75rem;
+}
+.photo-add ion-icon { font-size: 24px; display: block; margin: 0 auto 2px; }
+.photo-preview { position: relative; }
+.photo-preview img { width: 100%; max-height: 240px; object-fit: cover; border-radius: 12px; }
+
+.kv { display: grid; grid-template-columns: 120px 1fr; gap: 6px 12px; font-size: 0.9rem; }
+.kv dt { color: var(--fc-muted); }
+.kv dd { margin: 0; }
+
+.toolbar-chips { display: flex; gap: 6px; overflow-x: auto; padding: 4px 12px 8px; scrollbar-width: none; }
+.toolbar-chips::-webkit-scrollbar { display: none; }
+.toolbar-chips ion-chip { flex-shrink: 0; margin: 0; }
+
+.brand {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 40px 0 24px; text-align: center;
+}
+.brand .logo {
+  width: 64px; height: 64px; border-radius: 18px; display: grid; place-items: center;
+  background: var(--ion-color-primary); color: #fff; font-size: 32px;
+}
+.brand h1 { margin: 6px 0 0; font-weight: 800; }
+.auth-wrap { max-width: 420px; margin: 0 auto; }
+.demo { font-size: 0.8rem; }
+.demo button { background: none; border: 0; color: var(--ion-color-primary); padding: 2px 0; font: inherit; text-decoration: underline; }
+
+.unread { border-left: 3px solid var(--ion-color-primary) !important; }
+.alert-danger { color: var(--ion-color-danger) !important; }
+.max { max-width: 900px; margin: 0 auto; }
+ion-segment-button {
+  text-transform: none;
+  letter-spacing: 0;
+  min-width: 0;
+  --padding-start: 4px;
+  --padding-end: 4px;
+}
