@@ -101,15 +101,17 @@ The app checks for new notifications every 30 seconds (badge on the tab bar).
 1. Find your PC's local IP address (`ipconfig`, e.g. `192.168.1.10`). The phone must be on the same Wi-Fi.
 2. Put it in `frontend/src/environments/environment.prod.ts` → `apiUrl: 'http://192.168.1.10:8000/api'`.
 3. Start the backend with `--host=0.0.0.0` (as shown above) and allow PHP through Windows Firewall.
-4. Build and open in Android Studio:
+4. Build the APK (needs JDK 21 and the Android SDK with platform 36; set `JAVA_HOME`, and `sdk.dir` in `frontend/android/local.properties`):
    ```bash
    cd frontend
-   npm install @capacitor/android
-   npx cap add android        # first time only
    npm run build
    npx cap sync android
-   npx cap open android
+   cd android
+   ./gradlew assembleDebug    # → android/app/build/outputs/apk/debug/app-debug.apk
    ```
+   Or open the `frontend/android` folder in Android Studio and press Run.
+
+   On Windows, if your user folder has a space in it, use the short path (e.g. `C:\Users\OLIVER~1\...`) for `JAVA_HOME` and `sdk.dir`.
 
 `capacitor.config.ts` already allows plain-HTTP calls to the local API. For a real deployment, serve the API over HTTPS and remove `cleartext: true`.
 

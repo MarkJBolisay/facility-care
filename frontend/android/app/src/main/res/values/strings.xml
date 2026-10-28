@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">FacilityCare</string>
+    <string name="title_activity_main">FacilityCare</string>
+    <string name="package_name">com.facilitycare.app</string>
+    <string name="custom_url_scheme">com.facilitycare.app</string>
+</resources>
