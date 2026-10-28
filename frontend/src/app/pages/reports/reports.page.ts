@@ -123,6 +123,7 @@ export class ReportsPage {
   status = '';
   category = '';
   priority = '';
+  private appliedStatus: string | null = null;
 
   protected items = signal<Report[]>([]);
   protected page = signal(1);
@@ -131,8 +132,11 @@ export class ReportsPage {
   protected loading = signal(false);
 
   ionViewWillEnter(): void {
+    // Links from the dashboard can preselect a status (?status=…). Applied once per link,
+    // so a filter picked here isn't overwritten when coming back from a report.
     const qs = this.route.snapshot.queryParamMap.get('status');
-    if (qs !== null) this.status = qs;
+    if (qs !== null && qs !== this.appliedStatus) this.status = qs;
+    this.appliedStatus = qs;
     void this.reload();
   }
 

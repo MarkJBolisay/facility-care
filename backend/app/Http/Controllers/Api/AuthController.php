@@ -40,7 +40,7 @@ class AuthController extends Controller
         $data = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
-            'password' => 'required|string|min:6|confirmed',
+            'password' => 'required|string|min:8',
             'role' => ['required', Rule::in(User::REPORTER_ROLES)],
             'department' => 'nullable|string|max:255',
             'id_number' => 'nullable|string|max:50',

@@ -1,3 +1,4 @@
+import { DatePipe } from '@angular/common';
 import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../../core/api.service';
@@ -5,11 +6,12 @@ import { AuthService } from '../../core/auth.service';
 import { NotificationService } from '../../core/notification.service';
 import { Report, User, labelOf, toneOf } from '../../core/models';
 import { UiService } from '../../core/ui.service';
+import { DashHeroComponent, initials } from '../../shared/dash';
 import { IONIC } from '../../shared/ionic';
 import { BarItem, SHARED, TrendPoint, completeRefresh } from '../../shared/ui';
 
 interface AdminDashboard {
-  reports: { total: number; pending: number; approved: number; in_progress: number; completed: number; rejected: number };
+  reports: { total: number; today: number; pending: number; approved: number; in_progress: number; completed: number; rejected: number };
   work_orders: { pending: number; in_progress: number; completed: number; unassigned: number; overdue: number };
   open_by_priority: Record<string, number>;
   open_by_category: Record<string, number>;
@@ -18,111 +20,168 @@ interface AdminDashboard {
   recent_reports: Report[];
 }
 
+/** Home screen for administrators. */
 @Component({
   selector: 'app-admin-dashboard',
-  imports: [...IONIC, ...SHARED, RouterLink],
+  imports: [...IONIC, ...SHARED, RouterLink, DatePipe, DashHeroComponent],
   template: `
-    <ion-header>
-      <ion-toolbar>
-        <ion-title>Dashboard</ion-title>
-        <ion-buttons slot="end">
-          <ion-button routerLink="/notifications">
-            <ion-icon slot="icon-only" name="notifications-outline" />
-            @if (notifications.unread()) {
-              <ion-badge color="danger">{{ notifications.unread() }}</ion-badge>
-            }
-          </ion-button>
-        </ion-buttons>
-      </ion-toolbar>
-    </ion-header>
-
-    <ion-content class="ion-padding page">
+    <ion-content class="dash">
       <ion-refresher slot="fixed" (ionRefresh)="load($event)"><ion-refresher-content /></ion-refresher>
 
-      <div class="max">
-        <p class="muted mt-0">Hello, {{ auth.user()?.name }}</p>
-
+      <app-dash-hero [subtitle]="(today | date: 'EEEE, MMMM d') + ' · Administrator'">
         @if (data(); as d) {
-          <div class="stat-grid">
-            <app-stat label="Total reports" [value]="d.reports.total" icon="document-text-outline" color="tertiary" routerLink="/tabs/reports" />
-            <app-stat label="Pending review" [value]="d.reports.pending" icon="time-outline" color="warning" />
-            <app-stat label="In progress" [value]="d.reports.in_progress" icon="construct-outline" color="primary" />
-            <app-stat label="Completed" [value]="d.reports.completed" icon="checkmark-circle-outline" color="success" />
+          <h1>
+            @if (d.reports.today) {
+              {{ d.reports.today }} new {{ d.reports.today === 1 ? 'report' : 'reports' }} today
+            } @else {
+              No new reports today
+            }
+          </h1>
+        }
+      </app-dash-hero>
+
+      <div class="dash-body">
+        @if (data(); as d) {
+          <!-- Totals -->
+          <div class="dash-card">
+            <div class="dash-summary" style="--cols: 3">
+              <a class="dash-metric warning" routerLink="/tabs/reports" [queryParams]="{ status: 'pending' }">
+                <strong>{{ d.reports.pending }}</strong><span>Pending</span>
+              </a>
+              <a class="dash-metric primary" routerLink="/tabs/reports" [queryParams]="{ status: 'in_progress' }">
+                <strong>{{ d.reports.in_progress }}</strong><span>In progress</span>
+              </a>
+              <a class="dash-metric success" routerLink="/tabs/reports" [queryParams]="{ status: 'completed' }">
+                <strong>{{ d.reports.completed }}</strong><span>Completed</span>
+              </a>
+            </div>
+            <div class="dash-summary-foot">
+              <span><strong>{{ d.reports.total }}</strong> total reports · {{ resolvedRate() }}% resolved</span>
+              <a class="dash-link" routerLink="/tabs/reports" [queryParams]="{ status: '' }">All reports</a>
+            </div>
           </div>
 
+          <!-- Needs attention -->
+          <div class="dash-section"><h2>Needs your attention</h2></div>
           @if (d.reports.pending || d.work_orders.unassigned || d.work_orders.overdue) {
-            <div class="section-title">Needs attention</div>
-            <ion-list class="cards">
-              @if (d.reports.pending) {
-                <ion-item button detail routerLink="/tabs/reports" [queryParams]="{ status: 'pending' }">
-                  <ion-icon slot="start" name="alert-circle-outline" color="warning" />
-                  <ion-label>{{ d.reports.pending }} report(s) waiting for review</ion-label>
-                </ion-item>
-              }
-              @if (d.work_orders.unassigned) {
-                <ion-item button detail routerLink="/tabs/work-orders">
-                  <ion-icon slot="start" name="person-add-outline" color="tertiary" />
-                  <ion-label>{{ d.work_orders.unassigned }} work order(s) without personnel</ion-label>
-                </ion-item>
-              }
-              @if (d.work_orders.overdue) {
-                <ion-item button detail routerLink="/tabs/work-orders">
-                  <ion-icon slot="start" name="warning-outline" color="danger" />
-                  <ion-label>{{ d.work_orders.overdue }} overdue work order(s)</ion-label>
-                </ion-item>
-              }
-            </ion-list>
+            <div class="dash-tiles">
+              <a class="dash-tile" [class.zero]="!d.reports.pending" routerLink="/tabs/reports" [queryParams]="{ status: 'pending' }">
+                <span class="dash-tile-icon tint-warning"><ion-icon name="document-text-outline" /></span>
+                <strong>{{ d.reports.pending }}</strong>
+                <span>To review</span>
+              </a>
+              <a class="dash-tile" [class.zero]="!d.work_orders.unassigned" routerLink="/tabs/work-orders" [queryParams]="{ attention: 'unassigned', status: '' }">
+                <span class="dash-tile-icon tint-tertiary"><ion-icon name="person-add-outline" /></span>
+                <strong>{{ d.work_orders.unassigned }}</strong>
+                <span>To assign</span>
+              </a>
+              <a class="dash-tile" [class.zero]="!d.work_orders.overdue" routerLink="/tabs/work-orders" [queryParams]="{ attention: 'overdue', status: '' }">
+                <span class="dash-tile-icon tint-danger"><ion-icon name="warning-outline" /></span>
+                <strong>{{ d.work_orders.overdue }}</strong>
+                <span>Overdue</span>
+              </a>
+            </div>
+          } @else {
+            <div class="dash-card dash-empty">
+              <ion-icon name="checkmark-done-outline" />
+              All caught up. Nothing is waiting for you.
+            </div>
           }
 
-          <div class="section-title">Last 6 months</div>
-          <div class="panel"><app-trend [points]="d.trend" /></div>
-
-          <div class="section-title">Open issues by priority</div>
-          <div class="panel"><app-bars [items]="priorityBars()" /></div>
-
-          <div class="section-title">Open issues by category</div>
-          <div class="panel"><app-bars [items]="categoryBars()" /></div>
-
-          <div class="section-title">Maintenance personnel workload</div>
-          <ion-list class="cards">
-            @for (p of d.personnel; track p.id) {
-              <ion-item>
-                <ion-icon slot="start" name="person-outline" />
-                <ion-label>
-                  <h3>{{ p.name }}</h3>
-                  <p>{{ p.specialization | label: 'category' }} · {{ p.is_available ? 'Available' : 'Unavailable' }}</p>
-                </ion-label>
-                <ion-badge slot="end" [color]="p.active_count ? 'primary' : 'medium'">{{ p.active_count }} active</ion-badge>
-              </ion-item>
-            }
-          </ion-list>
-
-          <div class="section-title">
-            Recent reports
-            <a routerLink="/tabs/reports">View all</a>
+          <!-- Quick actions -->
+          <div class="dash-section"><h2>Quick actions</h2></div>
+          <div class="dash-card dash-actions">
+            <a class="dash-action" routerLink="/work-orders/new">
+              <span class="dash-tile-icon tint-primary"><ion-icon name="hammer-outline" /></span>New work order
+            </a>
+            <a class="dash-action" routerLink="/facilities/new">
+              <span class="dash-tile-icon tint-success"><ion-icon name="business-outline" /></span>Add facility
+            </a>
+            <a class="dash-action" routerLink="/notifications/send">
+              <span class="dash-tile-icon tint-warning"><ion-icon name="megaphone-outline" /></span>Send notice
+            </a>
+            <a class="dash-action" routerLink="/analytics">
+              <span class="dash-tile-icon tint-tertiary"><ion-icon name="bar-chart-outline" /></span>Analytics
+            </a>
           </div>
-          <ion-list class="cards">
+
+          <!-- Trend -->
+          <div class="dash-section">
+            <h2>Last 6 months</h2>
+            <a routerLink="/analytics">Full report</a>
+          </div>
+          <div class="dash-card dash-panel"><app-trend [points]="d.trend" /></div>
+
+          <!-- Open issues -->
+          <div class="dash-section"><h2>Open issues</h2></div>
+          <div class="dash-card dash-panel">
+            <ion-segment [value]="breakdown()" (ionChange)="setBreakdown($event)">
+              <ion-segment-button value="priority"><ion-label>By priority</ion-label></ion-segment-button>
+              <ion-segment-button value="category"><ion-label>By category</ion-label></ion-segment-button>
+            </ion-segment>
+            <app-bars [items]="breakdown() === 'priority' ? priorityBars() : categoryBars()" />
+          </div>
+
+          <!-- Team -->
+          <div class="dash-section">
+            <h2>Maintenance team</h2>
+            <a routerLink="/users">Manage</a>
+          </div>
+          <div class="dash-card dash-panel" style="padding-top: 4px; padding-bottom: 4px">
+            @for (p of d.personnel; track p.id) {
+              <div class="dash-person">
+                <div class="dash-person-avatar">{{ initialsOf(p.name) }}<i [class.on]="p.is_available"></i></div>
+                <div class="dash-person-main">
+                  <strong>{{ p.name }}</strong>
+                  <span>{{ p.specialization | label: 'category' }} · {{ p.is_available ? 'Available' : 'Not available' }}</span>
+                </div>
+                <div class="dash-load">
+                  <b>{{ p.active_count }}</b> active
+                  <div class="dash-load-track"><div [style.width.%]="loadPct(p.active_count)"></div></div>
+                </div>
+              </div>
+            } @empty {
+              <div class="dash-empty">No maintenance personnel yet.</div>
+            }
+          </div>
+
+          <!-- Recent -->
+          <div class="dash-section">
+            <h2>Recent reports</h2>
+            <a routerLink="/tabs/reports" [queryParams]="{ status: '' }">View all</a>
+          </div>
+          <div class="dash-list">
             @for (r of d.recent_reports; track r.id) {
-              <ion-item button detail [routerLink]="['/reports', r.id]">
-                <ion-label>
-                  <h3>{{ r.title }}</h3>
-                  <p>{{ r.facility?.full_name || r.location_details || 'No location' }} · {{ r.created_at | ago }}</p>
+              <a class="dash-item" [routerLink]="['/reports', r.id]">
+                <div class="dash-thumb">
+                  @if (r.photo_url) {
+                    <img [src]="r.photo_url" alt="" loading="lazy" />
+                  } @else {
+                    <ion-icon name="document-text-outline" />
+                  }
+                </div>
+                <div class="dash-item-main">
+                  <span class="dash-item-title">{{ r.title }}</span>
+                  <div class="dash-item-meta">
+                    <span>{{ r.facility?.full_name || r.location_details || 'No location' }}</span>
+                  </div>
+                  <div class="dash-item-meta">
+                    <span>{{ r.reporter?.name }} · {{ r.created_at | ago }}</span>
+                  </div>
                   <div class="pills">
                     <app-badge kind="status" [value]="r.status" />
                     @if (r.priority) {
                       <app-badge kind="priority" [value]="r.priority" />
                     }
                   </div>
-                </ion-label>
-              </ion-item>
-            }
-          </ion-list>
-        } @else {
-          <div class="stat-grid">
-            @for (i of [1, 2, 3, 4]; track i) {
-              <div class="stat"><ion-skeleton-text animated style="height: 56px" /></div>
+                </div>
+                <ion-icon name="chevron-forward-outline" class="chev" />
+              </a>
             }
           </div>
+        } @else {
+          <ion-skeleton-text animated class="dash-skeleton" style="height: 110px" />
+          <ion-skeleton-text animated class="dash-skeleton" style="height: 110px; margin-top: 16px" />
         }
       </div>
     </ion-content>
@@ -134,7 +193,21 @@ export class AdminDashboardPage {
   protected auth = inject(AuthService);
   protected notifications = inject(NotificationService);
 
+  protected readonly today = new Date();
   protected data = signal<AdminDashboard | null>(null);
+  protected breakdown = signal<'priority' | 'category'>('priority');
+  protected readonly initialsOf = initials;
+
+  protected resolvedRate = computed(() => {
+    const r = this.data()?.reports;
+    return r?.total ? Math.round((r.completed / r.total) * 100) : 0;
+  });
+
+  private maxLoad = computed(() => Math.max(1, ...(this.data()?.personnel ?? []).map((p) => p.active_count)));
+
+  protected loadPct(n: number): number {
+    return (n / this.maxLoad()) * 100;
+  }
 
   protected priorityBars = computed<BarItem[]>(() => {
     const p = this.data()?.open_by_priority ?? {};
@@ -149,6 +222,11 @@ export class AdminDashboardPage {
       value: v,
     })),
   );
+
+  setBreakdown(event: Event): void {
+    const v = (event as CustomEvent<{ value: string }>).detail.value;
+    this.breakdown.set(v === 'category' ? 'category' : 'priority');
+  }
 
   ionViewWillEnter(): void {
     void this.load();

@@ -1,6 +1,12 @@
 import { addIcons } from 'ionicons';
 import {
   addCircleOutline,
+  arrowBackOutline,
+  eyeOffOutline,
+  eyeOutline,
+  helpCircleOutline,
+  idCardOutline,
+  schoolOutline,
   addOutline,
   alertCircleOutline,
   analyticsOutline,
@@ -27,6 +33,7 @@ import {
   hammerOutline,
   homeOutline,
   imageOutline,
+  informationCircleOutline,
   layersOutline,
   listOutline,
   locationOutline,
@@ -51,6 +58,12 @@ import {
 export function registerIcons(): void {
   addIcons({
     addCircleOutline,
+    arrowBackOutline,
+    eyeOffOutline,
+    eyeOutline,
+    helpCircleOutline,
+    idCardOutline,
+    schoolOutline,
     addOutline,
     alertCircleOutline,
     analyticsOutline,
@@ -77,6 +90,7 @@ export function registerIcons(): void {
     hammerOutline,
     homeOutline,
     imageOutline,
+    informationCircleOutline,
     layersOutline,
     listOutline,
     locationOutline,

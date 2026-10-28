@@ -26,7 +26,9 @@ import { SHARED, completeRefresh } from '../../shared/ui';
       </ion-toolbar>
       @if (scope === 'all') {
         <div class="toolbar-chips">
-          <ion-chip [outline]="status !== ''" [color]="status === '' ? 'primary' : 'medium'" (click)="setStatus('')">All</ion-chip>
+          <ion-chip [outline]="status !== '' || attention !== ''" [color]="status === '' && attention === '' ? 'primary' : 'medium'" (click)="setStatus('')">All</ion-chip>
+          <ion-chip [outline]="attention !== 'unassigned'" [color]="attention === 'unassigned' ? 'tertiary' : 'medium'" (click)="setAttention('unassigned')">Unassigned</ion-chip>
+          <ion-chip [outline]="attention !== 'overdue'" [color]="attention === 'overdue' ? 'danger' : 'medium'" (click)="setAttention('overdue')">Overdue</ion-chip>
           @for (s of statuses; track s.value) {
             <ion-chip [outline]="status !== s.value" [color]="status === s.value ? 'primary' : 'medium'" (click)="setStatus(s.value)">{{ s.label }}</ion-chip>
           }
@@ -98,25 +100,45 @@ export class WorkOrdersPage {
   private ui = inject(UiService);
   protected auth = inject(AuthService);
 
-  protected scope: 'all' | 'active' | 'history' = inject(ActivatedRoute).snapshot.data['scope'] ?? 'all';
+  private route = inject(ActivatedRoute);
+  protected scope: 'all' | 'active' | 'history' = this.route.snapshot.data['scope'] ?? 'all';
   protected title = { all: 'Work Orders', active: 'My Tasks', history: 'Maintenance History' }[this.scope];
   protected statuses = WORK_ORDER_STATUSES;
   protected priorities = PRIORITIES;
 
   search = '';
   status = '';
+  attention = '';
   priority = '';
+  private appliedQuery = '';
   protected items = signal<WorkOrder[]>([]);
   protected page = signal(1);
   protected lastPage = signal(1);
   protected loading = signal(false);
 
   ionViewWillEnter(): void {
+    // Links from the dashboard can preselect a filter (?status=… or ?attention=…)
+    // (applied once per link, so a filter picked here isn't overwritten when coming back)
+    const q = this.route.snapshot.queryParamMap;
+    const key = `${q.get('status')}|${q.get('attention')}`;
+    if ((q.has('status') || q.has('attention')) && key !== this.appliedQuery) {
+      this.status = q.get('status') ?? '';
+      this.attention = q.get('attention') ?? '';
+    }
+    this.appliedQuery = key;
     void this.reload();
   }
 
   setStatus(v: string): void {
     this.status = v;
+    this.attention = '';
+    void this.reload();
+  }
+
+  /** Open work orders without personnel, or past their due date. */
+  setAttention(v: string): void {
+    this.attention = this.attention === v ? '' : v;
+    this.status = '';
     void this.reload();
   }
 
@@ -146,6 +168,7 @@ export class WorkOrdersPage {
         page,
         search: this.search,
         status: this.status,
+        attention: this.attention,
         priority: this.priority,
         scope: this.scope === 'all' ? '' : this.scope,
       });

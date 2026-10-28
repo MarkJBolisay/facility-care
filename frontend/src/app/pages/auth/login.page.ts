@@ -1,70 +1,86 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
+import { AlertController } from '@ionic/angular';
 import { errorMessage } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
 import { IONIC } from '../../shared/ionic';
+import { AuthLogoComponent } from './auth-logo';
 
 @Component({
   selector: 'app-login',
-  imports: [...IONIC, FormsModule, RouterLink],
+  imports: [...IONIC, FormsModule, RouterLink, AuthLogoComponent],
   template: `
-    <ion-content class="ion-padding page">
-      <div class="auth-wrap">
-        <div class="brand">
-          <div class="logo"><ion-icon name="construct-outline" /></div>
+    <ion-content class="auth" [scrollY]="true">
+      <div class="auth-login">
+        <header class="auth-hero">
+          <app-auth-logo [size]="112" />
           <h1>FacilityCare</h1>
-          <p class="muted mt-0">School facility reporting &amp; maintenance</p>
-        </div>
+          <p>School facility reporting &amp; maintenance</p>
+          <span class="auth-campus">NEUST · PAPAYA OFF-CAMPUS</span>
+        </header>
 
-        <form (ngSubmit)="submit()" class="panel">
-          <ion-input
-            label="Email"
-            labelPlacement="floating"
-            fill="outline"
-            type="email"
-            name="email"
-            autocomplete="email"
-            [(ngModel)]="email"
-            required
-          />
-          <br />
-          <ion-input
-            label="Password"
-            labelPlacement="floating"
-            fill="outline"
-            type="password"
-            name="password"
-            autocomplete="current-password"
-            [(ngModel)]="password"
-            required
-          >
-          </ion-input>
+        <section class="auth-sheet">
+          <h2>Welcome back</h2>
+          <p class="auth-sub">Sign in to report or track a facility issue.</p>
 
-          @if (error()) {
-            <ion-text color="danger"><p class="small">{{ error() }}</p></ion-text>
-          }
+          <form (ngSubmit)="submit()" novalidate>
+            <label class="auth-label" for="login-email">Email</label>
+            <div class="auth-field">
+              <ion-icon name="mail-outline" />
+              <input
+                id="login-email"
+                type="email"
+                name="email"
+                autocomplete="email"
+                inputmode="email"
+                placeholder="you@school.edu"
+                [(ngModel)]="email"
+              />
+            </div>
 
-          <ion-button expand="block" type="submit" class="ion-margin-top" [disabled]="loading()">
-            @if (loading()) {
-              <ion-spinner name="crescent" />
-            } @else {
-              Sign in
+            <div class="auth-label-row">
+              <label class="auth-label" for="login-password">Password</label>
+              <button type="button" class="auth-link" (click)="forgot()">Forgot password?</button>
+            </div>
+            <div class="auth-field">
+              <ion-icon name="lock-closed-outline" />
+              <input
+                id="login-password"
+                [type]="showPassword() ? 'text' : 'password'"
+                name="password"
+                autocomplete="current-password"
+                placeholder="Enter your password"
+                [(ngModel)]="password"
+              />
+              <button
+                type="button"
+                class="auth-eye"
+                [attr.aria-label]="showPassword() ? 'Hide password' : 'Show password'"
+                (click)="showPassword.set(!showPassword())"
+              >
+                <ion-icon [name]="showPassword() ? 'eye-off-outline' : 'eye-outline'" />
+              </button>
+            </div>
+
+            @if (error()) {
+              <p class="auth-error" role="alert">{{ error() }}</p>
             }
-          </ion-button>
-        </form>
 
-        <p class="ion-text-center small">
-          Student, faculty or staff without an account?
-          <a routerLink="/register">Create one</a>
-        </p>
+            <button type="submit" class="auth-btn" [disabled]="loading()">
+              @if (loading()) {
+                <ion-spinner name="crescent" />
+              } @else {
+                Sign in <ion-icon name="arrow-forward-outline" />
+              }
+            </button>
+          </form>
 
-        <div class="panel demo">
-          <strong>Demo accounts</strong> (password: <code>password</code>)<br />
-          <button type="button" (click)="fill('admin@facilitycare.test')">admin@facilitycare.test</button> — Administrator<br />
-          <button type="button" (click)="fill('ramon@facilitycare.test')">ramon@facilitycare.test</button> — Maintenance<br />
-          <button type="button" (click)="fill('student@facilitycare.test')">student@facilitycare.test</button> — Student
-        </div>
+          <p class="auth-foot">
+            Student, faculty or staff without an account?<br />
+            <a routerLink="/register">Create one</a>
+          </p>
+        </section>
       </div>
     </ion-content>
   `,
@@ -72,19 +88,26 @@ import { IONIC } from '../../shared/ionic';
 export class LoginPage {
   private auth = inject(AuthService);
   private router = inject(Router);
+  private alertCtrl = inject(AlertController);
 
   email = '';
   password = '';
+  protected showPassword = signal(false);
   protected loading = signal(false);
   protected error = signal('');
 
-  fill(email: string): void {
-    this.email = email;
-    this.password = 'password';
+  async forgot(): Promise<void> {
+    const alert = await this.alertCtrl.create({
+      header: 'Forgot password?',
+      message:
+        'Please visit or message the campus facility office. An administrator can reset your password, and you can change it later in your profile.',
+      buttons: ['OK'],
+    });
+    await alert.present();
   }
 
   async submit(): Promise<void> {
-    if (!this.email || !this.password) {
+    if (!this.email.trim() || !this.password) {
       this.error.set('Enter your email and password.');
       return;
     }
@@ -93,6 +116,7 @@ export class LoginPage {
     try {
       const user = await this.auth.login(this.email.trim(), this.password);
       this.password = '';
+      this.showPassword.set(false);
       await this.router.navigateByUrl(this.auth.homeUrl(user.role), { replaceUrl: true });
     } catch (err) {
       this.error.set(errorMessage(err));

@@ -39,6 +39,13 @@ class WorkOrderController extends Controller
             $query->whereIn('status', ['completed', 'cancelled'])->orderByDesc('completed_at');
         }
 
+        // attention=unassigned|overdue → open work orders that need the admin's action
+        if ($request->input('attention') === 'unassigned') {
+            $query->whereIn('status', WorkOrder::ACTIVE_STATUSES)->whereNull('assigned_to');
+        } elseif ($request->input('attention') === 'overdue') {
+            $query->whereIn('status', WorkOrder::ACTIVE_STATUSES)->whereDate('due_date', '<', today());
+        }
+
         foreach (['status', 'priority', 'assigned_to', 'facility_id'] as $field) {
             if ($request->filled($field)) {
                 $query->where($field, $request->input($field));

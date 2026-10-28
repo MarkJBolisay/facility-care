@@ -1,10 +1,12 @@
-import { Component, inject, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { DatePipe } from '@angular/common';
+import { Component, computed, inject, signal } from '@angular/core';
+import { Router, RouterLink } from '@angular/router';
 import { ApiService } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
-import { WorkOrder } from '../../core/models';
+import { WorkOrder, labelOf, toneOf } from '../../core/models';
 import { NotificationService } from '../../core/notification.service';
 import { UiService } from '../../core/ui.service';
+import { DashHeroComponent } from '../../shared/dash';
 import { IONIC } from '../../shared/ionic';
 import { SHARED, completeRefresh } from '../../shared/ui';
 
@@ -14,78 +16,124 @@ interface MaintenanceDashboard {
   next_tasks: WorkOrder[];
 }
 
+/** Home screen for maintenance personnel. */
 @Component({
   selector: 'app-maintenance-dashboard',
-  imports: [...IONIC, ...SHARED, RouterLink],
+  imports: [...IONIC, ...SHARED, RouterLink, DatePipe, DashHeroComponent],
   template: `
-    <ion-header>
-      <ion-toolbar>
-        <ion-title>Dashboard</ion-title>
-        <ion-buttons slot="end">
-          <ion-button routerLink="/tabs/alerts">
-            <ion-icon slot="icon-only" name="notifications-outline" />
-            @if (notifications.unread()) {
-              <ion-badge color="danger">{{ notifications.unread() }}</ion-badge>
-            }
-          </ion-button>
-        </ion-buttons>
-      </ion-toolbar>
-    </ion-header>
-
-    <ion-content class="ion-padding page">
+    <ion-content class="dash">
       <ion-refresher slot="fixed" (ionRefresh)="load($event)"><ion-refresher-content /></ion-refresher>
-      <div class="max">
-        <p class="muted mt-0">Hello, {{ auth.user()?.name }}</p>
 
+      <app-dash-hero [subtitle]="subtitle()">
+        <div class="dash-avail">
+          <span class="dash-avail-dot" [class.on]="available()"></span>
+          <div class="dash-avail-text">
+            <strong>{{ available() ? 'Available for new tasks' : 'Not available' }}</strong>
+            <span>The admin sees this when assigning repairs.</span>
+          </div>
+          <ion-toggle
+            [checked]="available()"
+            [disabled]="saving()"
+            (ionChange)="toggleAvailable($event)"
+            aria-label="Available for new tasks"
+          />
+        </div>
+      </app-dash-hero>
+
+      <div class="dash-body">
         @if (data(); as d) {
-          <div class="panel">
-            <ion-toggle [checked]="d.is_available" (ionChange)="toggleAvailable($event)" justify="space-between">
-              <strong>Available for new tasks</strong>
-              <div class="small muted">The admin sees this when assigning repairs.</div>
-            </ion-toggle>
+          <div class="dash-card">
+            <div class="dash-summary">
+              <a class="dash-metric warning" routerLink="/tabs/tasks">
+                <strong>{{ d.tasks.pending }}</strong><span>To do</span>
+              </a>
+              <a class="dash-metric primary" routerLink="/tabs/tasks">
+                <strong>{{ d.tasks.in_progress }}</strong><span>In progress</span>
+              </a>
+              <a class="dash-metric danger" routerLink="/tabs/tasks">
+                <strong>{{ d.tasks.overdue }}</strong><span>Overdue</span>
+              </a>
+              <a class="dash-metric success" routerLink="/tabs/history">
+                <strong>{{ d.tasks.completed_this_month }}</strong><span>Done this month</span>
+              </a>
+            </div>
+            <div class="dash-summary-foot">
+              <span><strong>{{ d.tasks.completed_total }}</strong> repairs completed in total</span>
+              <a class="dash-link" routerLink="/tabs/history">History</a>
+            </div>
           </div>
 
-          <div class="stat-grid">
-            <app-stat label="Pending" [value]="d.tasks.pending" icon="time-outline" color="warning" />
-            <app-stat label="In progress" [value]="d.tasks.in_progress" icon="construct-outline" color="primary" />
-            <app-stat label="Done this month" [value]="d.tasks.completed_this_month" icon="checkmark-circle-outline" color="success" />
-            <app-stat label="Overdue" [value]="d.tasks.overdue" icon="warning-outline" color="danger" />
-          </div>
+          @if (current(); as w) {
+            <div class="dash-section"><h2>{{ w.status === 'in_progress' ? 'Current job' : 'Next job' }}</h2></div>
+            <a class="dash-card dash-job" [routerLink]="['/work-orders', w.id]">
+              @if (w.report?.photo_url) {
+                <div class="dash-job-photo"><img [src]="w.report.photo_url" alt="Photo of the issue" /></div>
+              }
+              <div class="dash-job-body">
+                <div class="pills">
+                  <app-badge kind="status" [value]="w.status" />
+                  <app-badge kind="priority" [value]="w.priority" />
+                </div>
+                <h3>{{ w.title }}</h3>
+                <div class="dash-job-meta">
+                  <span><ion-icon name="location-outline" />{{ w.facility?.full_name || 'No location' }}</span>
+                  @if (w.due_date) {
+                    <span [class.overdue]="isOverdue(w)">
+                      <ion-icon name="calendar-outline" />
+                      {{ isOverdue(w) ? 'Overdue · was due' : 'Due' }} {{ w.due_date | date: 'MMM d' }}
+                    </span>
+                  }
+                </div>
+                <span class="dash-btn">
+                  {{ w.status === 'in_progress' ? 'Continue repair' : 'Open task' }}
+                  <ion-icon name="arrow-forward-outline" />
+                </span>
+              </div>
+            </a>
+          }
 
-          <div class="section-title">
-            Up next
+          <div class="dash-section">
+            <h2>Up next</h2>
             <a routerLink="/tabs/tasks">All tasks</a>
           </div>
-          <ion-list class="cards">
-            @for (w of d.next_tasks; track w.id) {
-              <ion-item button detail [routerLink]="['/work-orders', w.id]">
-                @if (w.report?.photo_url) {
-                  <ion-thumbnail slot="start"><img [src]="w.report.photo_url" alt="" /></ion-thumbnail>
-                }
-                <ion-label>
-                  <h3>{{ w.title }}</h3>
-                  <p><ion-icon name="location-outline" /> {{ w.facility?.full_name || 'No location' }}</p>
-                  @if (w.due_date) {
-                    <p><ion-icon name="calendar-outline" /> Due {{ w.due_date }}</p>
-                  }
-                  <div class="pills">
-                    <app-badge kind="status" [value]="w.status" />
-                    <app-badge kind="priority" [value]="w.priority" />
+          <div class="dash-list">
+            @for (w of upNext(); track w.id) {
+              <a class="dash-item" [routerLink]="['/work-orders', w.id]">
+                <span class="dash-stripe" [style.background]="'var(--ion-color-' + priorityTone(w) + ')'"></span>
+                <div class="dash-item-main">
+                  <span class="dash-item-title">{{ w.title }}</span>
+                  <div class="dash-item-meta">
+                    <ion-icon name="location-outline" /><span>{{ w.facility?.full_name || 'No location' }}</span>
                   </div>
-                </ion-label>
-              </ion-item>
+                  <div class="dash-item-meta" [class.overdue]="isOverdue(w)">
+                    <ion-icon name="flag-outline" /><span>{{ priorityLabel(w) }}</span>
+                    @if (w.due_date) {
+                      <span>· {{ isOverdue(w) ? 'Overdue' : 'Due' }} {{ w.due_date | date: 'MMM d' }}</span>
+                    }
+                  </div>
+                </div>
+                @if (w.status === 'pending') {
+                  <button type="button" class="dash-mini-btn" [disabled]="starting() === w.id" (click)="start(w, $event)">
+                    {{ starting() === w.id ? 'Starting…' : 'Start' }}
+                  </button>
+                } @else {
+                  <ion-icon name="chevron-forward-outline" class="chev" />
+                }
+              </a>
             } @empty {
-              <app-empty text="No assigned tasks right now." icon="checkmark-done-outline" />
-            }
-          </ion-list>
-
-          <p class="muted small ion-text-center">{{ d.tasks.completed_total }} repairs completed in total</p>
-        } @else {
-          <div class="stat-grid">
-            @for (i of [1, 2, 3, 4]; track i) {
-              <div class="stat"><ion-skeleton-text animated style="height: 56px" /></div>
+              @if (!current()) {
+                <div class="dash-card dash-empty">
+                  <ion-icon name="checkmark-done-outline" />
+                  No assigned tasks right now. New tasks will show up here.
+                </div>
+              } @else {
+                <div class="dash-card dash-empty" style="padding: 16px">Nothing else in your queue.</div>
+              }
             }
           </div>
+        } @else {
+          <ion-skeleton-text animated class="dash-skeleton" />
+          <ion-skeleton-text animated class="dash-skeleton" style="height: 220px; margin-top: 16px" />
         }
       </div>
     </ion-content>
@@ -94,9 +142,35 @@ interface MaintenanceDashboard {
 export class MaintenanceDashboardPage {
   private api = inject(ApiService);
   private ui = inject(UiService);
+  private router = inject(Router);
   protected auth = inject(AuthService);
   protected notifications = inject(NotificationService);
+
   protected data = signal<MaintenanceDashboard | null>(null);
+  protected available = signal(true);
+  protected saving = signal(false);
+  protected starting = signal<number | null>(null);
+
+  /** The task to focus on: the first one in progress, otherwise the most urgent one. */
+  protected current = computed(() => this.data()?.next_tasks[0] ?? null);
+  protected upNext = computed(() => this.data()?.next_tasks.slice(1) ?? []);
+
+  protected subtitle = computed(() => {
+    const spec = this.auth.user()?.specialization;
+    return 'Maintenance' + (spec ? ' · ' + labelOf('category', spec) : '');
+  });
+
+  protected isOverdue(w: WorkOrder): boolean {
+    return !!w.due_date && w.due_date < new Date().toISOString().slice(0, 10);
+  }
+
+  protected priorityTone(w: WorkOrder): string {
+    return toneOf('priority', w.priority);
+  }
+
+  protected priorityLabel(w: WorkOrder): string {
+    return labelOf('priority', w.priority) + ' priority';
+  }
 
   ionViewWillEnter(): void {
     void this.load();
@@ -104,7 +178,9 @@ export class MaintenanceDashboardPage {
 
   async load(event?: Event): Promise<void> {
     try {
-      this.data.set(await this.api.get<MaintenanceDashboard>('dashboard'));
+      const d = await this.api.get<MaintenanceDashboard>('dashboard');
+      this.data.set(d);
+      this.available.set(d.is_available);
       void this.notifications.refresh();
     } catch (err) {
       await this.ui.error(err);
@@ -113,16 +189,37 @@ export class MaintenanceDashboardPage {
     }
   }
 
+  /** Start a pending task right from the list, then open it. */
+  async start(w: WorkOrder, event: Event): Promise<void> {
+    event.preventDefault();
+    event.stopPropagation();
+    this.starting.set(w.id);
+    try {
+      await this.api.post(`work-orders/${w.id}/status`, { status: 'in_progress' });
+      await this.ui.toast('Repair started.', 'success');
+      await this.router.navigate(['/work-orders', w.id]);
+    } catch (err) {
+      await this.ui.error(err);
+    } finally {
+      this.starting.set(null);
+    }
+  }
+
   async toggleAvailable(event: Event): Promise<void> {
     const checked = (event as CustomEvent<{ checked: boolean }>).detail.checked;
     const user = this.auth.user();
-    if (!user || user.is_available === checked) return;
+    if (!user || this.available() === checked) return;
+    this.saving.set(true);
     try {
       const updated = await this.api.put<typeof user>('me', { ...user, is_available: checked });
       this.auth.setUser(updated);
-      await this.ui.toast(checked ? 'You are now available.' : 'You are marked unavailable.');
+      this.available.set(checked);
+      await this.ui.toast(checked ? 'You are now available for new tasks.' : 'You are marked as not available.');
     } catch (err) {
+      this.available.set(!checked);
       await this.ui.error(err);
+    } finally {
+      this.saving.set(false);
     }
   }
 }

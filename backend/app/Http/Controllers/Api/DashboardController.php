@@ -55,6 +55,7 @@ class DashboardController extends Controller
             'role' => 'admin',
             'reports' => [
                 'total' => $byStatus->sum(),
+                'today' => Report::whereDate('created_at', today())->count(),
                 'pending' => (int) ($byStatus['pending'] ?? 0),
                 'approved' => (int) ($byStatus['approved'] ?? 0),
                 'in_progress' => (int) ($byStatus['in_progress'] ?? 0),
@@ -116,7 +117,16 @@ class DashboardController extends Controller
                 'completed' => (int) ($byStatus['completed'] ?? 0),
                 'rejected' => (int) ($byStatus['rejected'] ?? 0),
             ],
-            'recent_reports' => Report::with('facility.parent')->where('user_id', $user->id)->latest()->limit(5)->get(),
+            // Open reports, shown with a progress tracker on the home screen
+            'active_reports' => Report::with(['facility.parent', 'activeWorkOrder.assignee:id,name'])
+                ->where('user_id', $user->id)
+                ->whereIn('status', ['pending', 'approved', 'in_progress'])
+                ->latest()->limit(10)->get(),
+            // Recently finished (completed or rejected)
+            'recent_closed' => Report::with('facility.parent')
+                ->where('user_id', $user->id)
+                ->whereIn('status', ['completed', 'rejected'])
+                ->latest('updated_at')->limit(3)->get(),
         ];
     }
 }
