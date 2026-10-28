@@ -11,7 +11,7 @@ import { IonIcon } from '@ionic/angular';
   template: `
     <div class="auth-seal" [style.width.px]="size()" [style.height.px]="size()">
       @if (ok()) {
-        <img src="assets/neust-logo.png" alt="NEUST seal" (error)="ok.set(false)" />
+        <img src="assets/neust-logo.png" alt="FacilityCare NEUST Papaya logo" (error)="ok.set(false)" />
       } @else {
         <ion-icon name="school-outline" [style.font-size.px]="size() * 0.5" />
       }

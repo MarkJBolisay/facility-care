@@ -1,6 +1,10 @@
 import { addIcons } from 'ionicons';
 import {
   addCircleOutline,
+  barChart,
+  documentText,
+  people,
+  settings,
   arrowBackOutline,
   eyeOffOutline,
   eyeOutline,
@@ -58,6 +62,10 @@ import {
 export function registerIcons(): void {
   addIcons({
     addCircleOutline,
+    barChart,
+    documentText,
+    people,
+    settings,
     arrowBackOutline,
     eyeOffOutline,
     eyeOutline,

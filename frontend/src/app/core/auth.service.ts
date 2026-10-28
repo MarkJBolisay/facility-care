@@ -5,6 +5,7 @@ import { REPORTER_ROLES, Role, User } from './models';
 
 const TOKEN_KEY = 'fc_token';
 const USER_KEY = 'fc_user';
+const LAST_EMAIL_KEY = 'fc_last_email';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -22,10 +23,21 @@ export class AuthService {
     return safeGet(TOKEN_KEY);
   }
 
-  async login(email: string, password: string): Promise<User> {
+  /**
+   * remember = true keeps the user signed in after the app is closed (localStorage).
+   * remember = false signs them out when the app/browser is closed (sessionStorage).
+   */
+  async login(email: string, password: string, remember = true): Promise<User> {
     const res = await this.api.post<{ token: string; user: User }>('login', { email, password });
-    this.store(res.token, res.user);
+    this.store(res.token, res.user, remember);
+    if (remember) safeSet(LAST_EMAIL_KEY, email);
+    else safeRemove(LAST_EMAIL_KEY);
     return res.user;
+  }
+
+  /** Email saved by the last "Remember me" sign-in, to prefill the form. */
+  get lastEmail(): string {
+    return safeGet(LAST_EMAIL_KEY) ?? '';
   }
 
   async register(data: Record<string, unknown>): Promise<User> {
@@ -43,7 +55,8 @@ export class AuthService {
 
   setUser(user: User): void {
     this.user.set(user);
-    safeSet(USER_KEY, JSON.stringify(user));
+    // keep the profile next to the token (local or session storage)
+    safeSet(USER_KEY, JSON.stringify(user), sessionOnly());
   }
 
   async logout(callApi = true): Promise<void> {
@@ -74,22 +87,24 @@ export class AuthService {
     }
   }
 
-  private store(token: string, user: User): void {
-    safeSet(TOKEN_KEY, token);
+  private store(token: string, user: User, remember = true): void {
+    safeRemove(TOKEN_KEY);
+    safeRemove(USER_KEY);
+    safeSet(TOKEN_KEY, token, !remember);
     this.setUser(user);
   }
 }
 
 function safeGet(key: string): string | null {
   try {
-    return localStorage.getItem(key);
+    return localStorage.getItem(key) ?? sessionStorage.getItem(key);
   } catch {
     return null;
   }
 }
-function safeSet(key: string, value: string): void {
+function safeSet(key: string, value: string, session = false): void {
   try {
-    localStorage.setItem(key, value);
+    (session ? sessionStorage : localStorage).setItem(key, value);
   } catch {
     /* storage unavailable */
   }
@@ -97,8 +112,17 @@ function safeSet(key: string, value: string): void {
 function safeRemove(key: string): void {
   try {
     localStorage.removeItem(key);
+    sessionStorage.removeItem(key);
   } catch {
     /* storage unavailable */
+  }
+}
+/** True when the current sign-in was made without "Remember me". */
+function sessionOnly(): boolean {
+  try {
+    return !localStorage.getItem(TOKEN_KEY) && !!sessionStorage.getItem(TOKEN_KEY);
+  } catch {
+    return false;
   }
 }
 function readJson<T>(key: string): T | null {

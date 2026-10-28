@@ -1,5 +1,6 @@
 @use "./theme/fonts";
 @use "./theme/dashboard";
+@use "./theme/login";
 /*
  * App Global CSS
  * ----------------------------------------------------------------------------
@@ -215,30 +216,6 @@ ion-content.auth {
 }
 .auth button, .auth input { font-family: inherit; }
 
-.auth-login {
-  max-width: 480px; min-height: 100%; margin: 0 auto;
-  display: flex; flex-direction: column; background: var(--auth-blue);
-}
-.auth-hero {
-  position: relative; overflow: hidden;
-  display: flex; flex-direction: column; align-items: center; text-align: center; color: #fff;
-  padding: calc(48px + var(--ion-safe-area-top, 0px)) 24px 56px;
-  background: linear-gradient(160deg, #2a6cf0 0%, var(--auth-blue) 55%, #1a4fc4 100%);
-}
-/* Faint rings in the background */
-.auth-hero::before, .auth-hero::after {
-  content: ''; position: absolute; border-radius: 50%; pointer-events: none;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-}
-.auth-hero::before { width: 320px; height: 320px; top: -150px; right: -120px; background: rgba(255, 255, 255, 0.05); }
-.auth-hero::after { width: 220px; height: 220px; bottom: -40px; left: -110px; background: rgba(255, 255, 255, 0.04); }
-.auth-hero > * { position: relative; }
-.auth-hero h1 { margin: 16px 0 4px; font-size: 1.75rem; font-weight: 800; letter-spacing: -0.01em; }
-.auth-hero p { margin: 0; font-size: 0.9rem; opacity: 0.92; }
-.auth-campus {
-  margin-top: 14px; padding: 5px 12px; border-radius: 999px;
-  background: rgba(255, 255, 255, 0.16); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.04em;
-}
 .auth-seal {
   display: grid; place-items: center; flex-shrink: 0; overflow: hidden;
   border-radius: 50%; background: #fff; color: var(--auth-blue);
@@ -246,13 +223,7 @@ ion-content.auth {
 }
 .auth-seal img { width: 100%; height: 100%; padding: 5%; object-fit: contain; }
 
-.auth-sheet {
-  position: relative; z-index: 1;
-  flex: 1; margin-top: -24px; padding: 28px 24px calc(24px + var(--ion-safe-area-bottom, 0px));
-  background: var(--auth-sheet); border-radius: 28px 28px 0 0;
-  display: flex; flex-direction: column;
-}
-.auth-sheet form, .auth-register form { display: flex; flex-direction: column; }
+.auth-register form { display: flex; flex-direction: column; }
 .auth h2 { margin: 0; font-size: 1.35rem; font-weight: 800; color: var(--auth-ink); letter-spacing: -0.01em; }
 .auth-sub { margin: 4px 0 22px; font-size: 0.85rem; color: var(--auth-text); }
 
@@ -337,4 +308,41 @@ ion-segment-button {
 @media (prefers-color-scheme: dark) {
   .auth-link, .auth-foot a { color: #7aa5ff; }
 }
+
+
+/* ==========================================================================
+   Small phones (works from 320px wide up)
+   ========================================================================== */
+
+/* Buttons: normal case like the login screen, not ALL CAPS */
+ion-button { text-transform: none; letter-spacing: 0; font-weight: 700; }
+
+/* Big numbers shrink a little on narrow screens instead of wrapping */
+.stat-value { font-size: clamp(1.35rem, 6.5vw, 1.8rem); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Long toggle labels wrap instead of being cut off */
+ion-toggle::part(label) { white-space: normal; overflow: visible; text-overflow: clip; }
+ion-toggle { white-space: normal; }
+
+/* Detail rows: keep values readable */
+.kv dd { min-width: 0; overflow-wrap: anywhere; }
+
+@media (max-width: 380px) {
+  ion-title { font-size: 1.05rem; }
+  .kv { grid-template-columns: minmax(84px, 32%) 1fr; gap: 6px 10px; font-size: 0.86rem; }
+  ion-content.ion-padding { --padding-start: 12px; --padding-end: 12px; }
+  .panel { padding: 12px 14px; }
+  .stat { padding: 10px 12px; }
+  .stat-grid { gap: 8px; }
+  .dash-body { padding: 0 12px 24px; }
+  .dash-hero { padding-left: 16px; padding-right: 16px; }
+  .dash-hero h1 { font-size: 1.25rem; }
+  .dash-metric strong { font-size: 1.3rem; }
+  .dash-tiles { gap: 8px; }
+  .dash-tile { padding: 10px; }
+  .dash-actions { gap: 4px; padding: 12px 4px; }
+  .dash-action { font-size: 0.66rem; }
+  .auth-register { padding-left: 18px; padding-right: 18px; }
+}
+
 

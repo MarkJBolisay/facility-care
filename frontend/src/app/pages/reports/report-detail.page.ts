@@ -2,7 +2,7 @@ import { DatePipe } from '@angular/common';
 import { Component, computed, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { ApiService } from '../../core/api.service';
+import { ApiService, errorMessage } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
 import { CATEGORIES, PRIORITIES, Report, WorkOrder } from '../../core/models';
 import { UiService } from '../../core/ui.service';
@@ -150,6 +150,8 @@ interface Step {
             }
           </ion-list>
         </div>
+      } @else if (loadError()) {
+        <app-empty [text]="loadError()" icon="alert-circle-outline" />
       } @else {
         <div class="ion-text-center ion-padding"><ion-spinner /></div>
       }
@@ -163,6 +165,7 @@ export class ReportDetailPage {
   protected auth = inject(AuthService);
 
   readonly id = input.required<string>();
+  protected loadError = signal('');
 
   protected categories = CATEGORIES;
   protected priorities = PRIORITIES;
@@ -203,13 +206,14 @@ export class ReportDetailPage {
   }
 
   async load(): Promise<void> {
+    this.loadError.set('');
     try {
       const r = await this.api.get<Report>(`reports/${this.id()}`);
       this.category = r.category;
       this.priority = r.priority;
       this.report.set(r);
     } catch (err) {
-      await this.ui.error(err);
+      this.loadError.set(errorMessage(err));
     }
   }
 

@@ -1,0 +1,222 @@
+/* ==========================================================================
+   Login screen
+   Phone: campus photo + logo on top, login card below, then the pitch.
+   900px and wider: photo panel on the left, card on the right.
+   ========================================================================== */
+:root {
+  --lg-navy: #0b2a6f;
+  --lg-blue: #1a63f0;
+  --lg-yellow: #f5c518;
+  --lg-text: #4b5567;
+  --lg-card: #ffffff;
+  --lg-field: #ffffff;
+  --lg-line: #dde3ec;
+  --lg-haze: 255, 255, 255;
+  --lg-side: linear-gradient(150deg, #eef5ff 0%, #d9e8ff 55%, #c3dbff 100%);
+  --lg-page: #eef4fc;
+  --lg-sky-top: #dcebff;
+  --lg-sky-bottom: #f4f8ff;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --lg-navy: #e6edff;
+    --lg-blue: #7aa5ff;
+    --lg-text: #a3adbb;
+    --lg-card: #171a21;
+    --lg-field: #20242d;
+    --lg-line: #2e3440;
+    --lg-haze: 15, 18, 25;
+    --lg-side: linear-gradient(150deg, #10141c 0%, #121a2b 60%, #15213a 100%);
+    --lg-page: #0f1218;
+    --lg-sky-top: #131c2e;
+    --lg-sky-bottom: #0f1218;
+  }
+}
+
+ion-content.lg { --background: var(--lg-page); }
+.lg-wrap { display: flex; flex-direction: column; min-height: 100%; }
+
+/* ---------- Photo panel ---------- */
+.lg-hero {
+  position: relative;
+  overflow: hidden;
+  padding: calc(26px + var(--ion-safe-area-top, 0px)) 20px 196px;
+  background: var(--lg-sky-top);
+}
+/* Phone: the campus photo is a band below the logo, partly behind the card */
+.lg-photo {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 210px;
+  background: url('/assets/campus.jpg') 50% 50% / cover no-repeat;
+}
+.lg-photo::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    var(--lg-sky-top) 0%,
+    rgba(var(--lg-haze), 0) 40%
+  );
+}
+.lg-hero-inner { position: relative; z-index: 1; }
+.lg-wave { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: 56px; z-index: 1; }
+
+/* Logo + name */
+.lg-brand { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; }
+.lg-logo { display: block; width: 104px; height: 104px; object-fit: contain; filter: drop-shadow(0 6px 14px rgba(10, 30, 90, 0.25)); }
+.lg-wordmark { font-size: 2.1rem; font-weight: 800; letter-spacing: -0.02em; line-height: 1.05; }
+.lg-wordmark span:first-child { color: var(--lg-navy); }
+.lg-wordmark span:last-child { color: var(--lg-blue); }
+.lg-tagline { margin: 6px 0 0; font-size: 0.82rem; font-weight: 600; color: var(--lg-navy); line-height: 1.35; max-width: 320px; }
+.lg-campus {
+  display: inline-flex; align-items: center; gap: 10px; margin-top: 10px;
+  font-size: 0.66rem; font-weight: 800; letter-spacing: 0.22em; color: var(--lg-navy);
+}
+.lg-campus i { width: 28px; height: 3px; border-radius: 2px; background: var(--lg-yellow); }
+
+/* ---------- Card ---------- */
+.lg-side { position: relative; z-index: 2; margin-top: -60px; padding: 0 16px calc(24px + var(--ion-safe-area-bottom, 0px)); }
+.lg-card {
+  max-width: 460px; margin: 0 auto; padding: 26px 22px 22px;
+  background: var(--lg-card); border-radius: 22px;
+  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.04), 0 18px 40px rgba(15, 42, 110, 0.14);
+}
+.lg-card-brand { display: none; }
+.lg-card h1 { margin: 0; text-align: center; font-size: 1.65rem; font-weight: 800; color: var(--lg-navy); letter-spacing: -0.01em; }
+.lg-sub { margin: 4px 0 20px; text-align: center; font-size: 0.88rem; color: var(--lg-text); }
+.lg form { display: flex; flex-direction: column; }
+
+.lg .auth-label { color: var(--lg-navy); font-size: 0.82rem; }
+.lg .auth-field { background: var(--lg-field); border-color: var(--lg-line); border-radius: 10px; height: 50px; margin-bottom: 14px; }
+.lg .auth-field:focus-within { border-color: var(--lg-blue); box-shadow: 0 0 0 3px rgba(26, 99, 240, 0.15); }
+
+.lg-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 2px 0 16px; }
+.lg-check { display: inline-flex; align-items: center; gap: 8px; font-size: 0.84rem; color: var(--lg-text); cursor: pointer; }
+.lg-check input { width: 18px; height: 18px; margin: 0; accent-color: var(--lg-blue); cursor: pointer; }
+.lg .auth-link { margin: 0; font-size: 0.84rem; color: var(--lg-blue); }
+.lg .auth-error { margin: -6px 0 12px; }
+.lg .auth-btn { margin-top: 0; border-radius: 10px; background: #1a63f0; height: 50px; }
+
+.lg-or { display: flex; align-items: center; gap: 12px; margin: 16px 0; font-size: 0.82rem; color: var(--lg-text); }
+.lg-or::before, .lg-or::after { content: ''; flex: 1; height: 1px; background: var(--lg-line); }
+.lg-google {
+  display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; height: 50px;
+  border: 1px solid var(--lg-line); border-radius: 10px; background: var(--lg-field);
+  color: var(--lg-navy); font-size: 0.92rem; font-weight: 700; cursor: pointer;
+}
+.lg-google svg { width: 22px; height: 22px; }
+.lg-google:active, .lg .auth-btn:active { transform: translateY(1px); }
+.lg-foot { margin: 18px 0 0; text-align: center; font-size: 0.86rem; color: var(--lg-text); }
+.lg-foot a { color: var(--lg-blue); font-weight: 700; text-decoration: none; }
+
+/* ---------- "A Better Campus" pitch ---------- */
+.lg-pitch-wide { display: none; }
+.lg-pitch-phone { max-width: 460px; margin: 26px auto 0; }
+.lg .lg-pitch h2 { margin: 0; font-size: 1.55rem; font-weight: 800; line-height: 1.15; color: var(--lg-navy); letter-spacing: -0.01em; }
+.lg-pitch h2 span { display: block; color: var(--lg-blue); }
+.lg-pitch p { margin: 8px 0 16px; font-size: 0.88rem; line-height: 1.45; color: var(--lg-text); }
+.lg-features { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.lg-feature {
+  display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 14px 8px; text-align: center;
+  background: var(--lg-card); border-radius: 14px; border: 1px solid var(--lg-line);
+  box-shadow: 0 4px 12px rgba(15, 42, 110, 0.06);
+  font-size: 0.78rem; font-weight: 700; color: var(--lg-navy); line-height: 1.25;
+}
+.lg-feature ion-icon { font-size: 30px; color: var(--lg-blue); }
+
+@media (min-width: 480px) {
+  .lg-features { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (max-width: 360px) {
+  .lg-hero { padding-left: 14px; padding-right: 14px; }
+  .lg-logo { width: 88px; height: 88px; }
+  .lg-wordmark { font-size: 1.8rem; }
+  .lg-side { padding-left: 12px; padding-right: 12px; }
+  .lg-card { padding: 22px 16px 18px; }
+  .lg-card h1 { font-size: 1.45rem; }
+}
+
+/* ---------- Tablet / desktop: two panels ---------- */
+@media (min-width: 900px) {
+  .lg-wrap { flex-direction: row; min-height: 100vh; }
+
+  .lg-hero {
+    background: var(--lg-sky-bottom);
+    flex: 1.55;
+    display: flex;
+    padding: 48px 56px 150px;
+  }
+  /* the photo fills the middle of the panel at close to its real size, edges fade out */
+  .lg-photo { top: 22%; bottom: auto; height: auto; aspect-ratio: 816 / 330; background-position: 50% 50%; }
+  .lg-photo::after {
+    background: linear-gradient(
+      180deg,
+      var(--lg-sky-bottom) 0%,
+      rgba(var(--lg-haze), 0) 22%,
+      rgba(var(--lg-haze), 0) 45%,
+      rgba(var(--lg-haze), 0.8) 72%,
+      var(--lg-sky-bottom) 100%
+    );
+  }
+  .lg-hero-inner { display: flex; flex-direction: column; justify-content: space-between; width: 100%; max-width: 760px; gap: 40px; }
+  .lg-brand { flex-direction: row; align-items: center; text-align: left; gap: 22px; }
+  .lg-hero .lg-logo { width: 150px; height: 150px; }
+  .lg-hero .lg-wordmark { font-size: 3.3rem; }
+  .lg-tagline { font-size: 1.05rem; max-width: 440px; }
+  .lg-campus { font-size: 0.78rem; margin-top: 14px; }
+  .lg-campus i { width: 48px; }
+  .lg-wave { height: 120px; }
+
+  .lg-pitch-wide { display: block; }
+  .lg-pitch-phone { display: none; }
+  .lg .lg-pitch h2 { font-size: 2.6rem; }
+  .lg-pitch p { font-size: 1.05rem; max-width: 460px; }
+  .lg-features { grid-template-columns: repeat(4, minmax(0, 132px)); }
+  .lg-feature { padding: 16px 10px; font-size: 0.85rem; }
+  .lg-feature ion-icon { font-size: 36px; }
+
+  .lg-side {
+    flex: 1;
+    display: grid;
+    place-items: center;
+    margin: 0;
+    padding: 40px 36px;
+    background: var(--lg-side);
+    overflow: hidden;
+  }
+  /* soft curves in the background */
+  .lg-side::before,
+  .lg-side::after {
+    content: '';
+    position: absolute;
+    border-radius: 50%;
+    pointer-events: none;
+    background: rgba(255, 255, 255, 0.35);
+  }
+  .lg-side::before { width: 520px; height: 520px; right: -260px; top: -180px; }
+  .lg-side::after { width: 420px; height: 420px; right: -120px; bottom: -260px; }
+  .lg-card { position: relative; z-index: 1; width: 100%; max-width: 440px; padding: 36px 40px 30px; border-radius: 24px; }
+  .lg-card-brand { display: flex; flex-direction: column; align-items: center; gap: 6px; margin-bottom: 22px; }
+  .lg-card-brand .lg-logo { width: 116px; height: 116px; }
+  .lg-card-brand .lg-wordmark { font-size: 2.4rem; }
+  .lg-campus-center {
+    padding-bottom: 8px; border-bottom: 3px solid var(--lg-yellow);
+    font-size: 0.72rem; font-weight: 800; letter-spacing: 0.3em; color: var(--lg-navy);
+  }
+}
+@media (prefers-color-scheme: dark) and (min-width: 900px) {
+  .lg-side::before, .lg-side::after { background: rgba(255, 255, 255, 0.03); }
+}
+
+/* Shorter laptop / tablet screens: smaller logo in the card so it fits without scrolling */
+@media (min-width: 900px) and (max-height: 820px) {
+  .lg-card { padding-top: 28px; padding-bottom: 24px; }
+  .lg-card-brand { margin-bottom: 14px; }
+  .lg-card-brand .lg-logo { width: 84px; height: 84px; }
+  .lg-card-brand .lg-wordmark { font-size: 2rem; }
+  .lg-sub { margin-bottom: 14px; }
+}

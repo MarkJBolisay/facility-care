@@ -2,7 +2,7 @@ import { DatePipe, DecimalPipe } from '@angular/common';
 import { Component, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { ApiService } from '../../core/api.service';
+import { ApiService, errorMessage } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
 import { Facility, Report, WorkOrder } from '../../core/models';
 import { UiService } from '../../core/ui.service';
@@ -127,6 +127,8 @@ interface History {
             }
           </ion-list>
         </div>
+      } @else if (loadError()) {
+        <app-empty [text]="loadError()" icon="alert-circle-outline" />
       } @else {
         <div class="ion-text-center ion-padding"><ion-spinner /></div>
       }
@@ -139,6 +141,7 @@ export class FacilityDetailPage {
   protected auth = inject(AuthService);
 
   readonly id = input.required<string>();
+  protected loadError = signal('');
   protected data = signal<History | null>(null);
   tab: 'repairs' | 'issues' = 'repairs';
 
@@ -147,10 +150,11 @@ export class FacilityDetailPage {
   }
 
   async load(): Promise<void> {
+    this.loadError.set('');
     try {
       this.data.set(await this.api.get<History>(`facilities/${this.id()}/history`));
     } catch (err) {
-      await this.ui.error(err);
+      this.loadError.set(errorMessage(err));
     }
   }
 }

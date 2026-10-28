@@ -40,8 +40,8 @@ interface Group {
                 <ion-label>
                   <h2><strong>{{ g.building.name }}</strong></h2>
                   <p>{{ g.building.code }} · {{ g.items.length }} room(s)/area(s)</p>
+                  <div class="pills"><app-badge kind="status" [value]="g.building.status" /></div>
                 </ion-label>
-                <app-badge slot="end" kind="status" [value]="g.building.status" />
               </ion-item>
             </ion-list>
           } @else {

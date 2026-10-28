@@ -2,7 +2,7 @@ import { DatePipe, DecimalPipe } from '@angular/common';
 import { Component, computed, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { ApiService } from '../../core/api.service';
+import { ApiService, errorMessage } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
 import { pickPhoto, resizeImage } from '../../core/image';
 import { WorkOrder, WorkOrderMaterial, WorkOrderPhoto } from '../../core/models';
@@ -199,6 +199,8 @@ import { SHARED } from '../../shared/ui';
             <ion-button expand="block" fill="clear" color="danger" (click)="cancel()">Cancel work order</ion-button>
           }
         </div>
+      } @else if (loadError()) {
+        <app-empty [text]="loadError()" icon="alert-circle-outline" />
       } @else {
         <div class="ion-text-center ion-padding"><ion-spinner /></div>
       }
@@ -212,6 +214,7 @@ export class WorkOrderDetailPage {
   protected auth = inject(AuthService);
 
   readonly id = input.required<string>();
+  protected loadError = signal('');
 
   protected wo = signal<WorkOrder | null>(null);
   protected showComplete = signal(false);
@@ -240,10 +243,11 @@ export class WorkOrderDetailPage {
   }
 
   async load(): Promise<void> {
+    this.loadError.set('');
     try {
       this.wo.set(await this.api.get<WorkOrder>(`work-orders/${this.id()}`));
     } catch (err) {
-      await this.ui.error(err);
+      this.loadError.set(errorMessage(err));
     }
   }
 
