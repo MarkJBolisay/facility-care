@@ -24,11 +24,25 @@ interface Analytics {
     repairs_completed: number;
     avg_resolution_hours: number | null;
     materials_cost: number;
+    corrective_completed: number;
+    preventive_completed: number;
+    equipment_total: number;
+    maintenance_overdue: number;
   };
+  equipment_conditions: Record<string, number>;
+  by_equipment: { code: string | null; name: string; requests: number }[];
   by_category: Record<string, number>;
   by_priority: Record<string, number>;
   by_facility: { name: string; total: number }[];
-  by_personnel: { name: string; completed: number; avg_hours: number }[];
+  by_personnel: {
+    name: string;
+    specialization: string | null;
+    assigned: number;
+    completed: number;
+    active_now: number;
+    overdue_now: number;
+    avg_hours: number | null;
+  }[];
   materials: { name: string; type: string; unit: string | null; quantity: number; cost: number }[];
   trend: TrendPoint[];
 }
@@ -42,7 +56,7 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 
     <ion-header>
       <ion-toolbar>
         <ion-buttons slot="start"><ion-back-button defaultHref="/tabs/more" /></ion-buttons>
-        <ion-title>Reports &amp; Analytics</ion-title>
+        <ion-title>Maintenance Reports</ion-title>
         @if (data()) {
           <ion-buttons slot="end">
             <ion-button (click)="exportCsv()"><ion-icon slot="icon-only" name="download-outline" /></ion-button>
@@ -109,13 +123,13 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 
           <p class="muted small mt-0">{{ d.from }} to {{ d.to }}</p>
 
           <div class="stat-grid">
-            <app-stat label="Reports received" [value]="d.summary.total_reports" icon="document-text-outline" color="tertiary" />
+            <app-stat label="Requests received" [value]="d.summary.total_reports" icon="document-text-outline" color="tertiary" />
             <app-stat label="Repairs completed" [value]="d.summary.repairs_completed" icon="checkmark-circle-outline" color="success" />
             <app-stat label="Completion rate" [value]="d.summary.completion_rate + '%'" icon="analytics-outline" color="primary" />
             <app-stat label="Avg. resolution" [value]="resolution()" icon="time-outline" color="warning" />
           </div>
 
-          <div class="section-title">Status of reports received</div>
+          <div class="section-title">Status of requests received</div>
           <div class="panel"><app-bars [items]="statusBars()" /></div>
 
           <div class="section-title">Submitted vs completed</div>
@@ -130,19 +144,44 @@ const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 
           <div class="section-title">Most reported facilities</div>
           <div class="panel"><app-bars [items]="facilityBars()" /></div>
 
-          <div class="section-title">Personnel performance</div>
+          <div class="section-title">Completed maintenance</div>
+          <div class="stat-grid">
+            <app-stat label="Repairs (corrective)" [value]="d.summary.corrective_completed" icon="construct-outline" color="primary" />
+            <app-stat label="Preventive services" [value]="d.summary.preventive_completed" icon="calendar-outline" color="success" />
+          </div>
+
+          <div class="section-title">Equipment condition (now)</div>
+          <div class="panel">
+            <app-bars [items]="conditionBars()" />
+            <p class="small muted mb-0">
+              {{ d.summary.equipment_total }} equipment items ·
+              <span [class.text-danger]="d.summary.maintenance_overdue">{{ d.summary.maintenance_overdue }} overdue for preventive maintenance</span>
+            </p>
+          </div>
+
+          <div class="section-title">Equipment with the most requests</div>
+          <div class="panel"><app-bars [items]="equipmentBars()" /></div>
+
+          <div class="section-title">Technician workload</div>
           <ion-list class="cards">
             @for (p of d.by_personnel; track p.name) {
               <ion-item>
                 <ion-icon slot="start" name="person-outline" />
-                <ion-label>
-                  <h3>{{ p.name }}</h3>
-                  <p>Avg. {{ p.avg_hours }}h from start to finish</p>
+                <ion-label class="ion-text-wrap">
+                  <h3>{{ p.name }} <span class="muted small">· {{ p.specialization | label: 'category' }}</span></h3>
+                  <p>
+                    {{ p.assigned }} assigned · {{ p.completed }} completed in this period
+                    @if (p.avg_hours !== null) { · avg. {{ p.avg_hours }}h per repair }
+                  </p>
+                  <div class="pills">
+                    <ion-badge [color]="p.active_now ? 'primary' : 'light'" class="pill">{{ p.active_now }} active now</ion-badge>
+                    @if (p.overdue_now) { <ion-badge color="danger" class="pill">{{ p.overdue_now }} overdue</ion-badge> }
+                  </div>
                 </ion-label>
                 <ion-badge slot="end" color="success">{{ p.completed }} done</ion-badge>
               </ion-item>
             } @empty {
-              <p class="muted small">No completed repairs in this period.</p>
+              <p class="muted small">No technicians yet.</p>
             }
           </ion-list>
 
@@ -217,6 +256,16 @@ export class AnalyticsPage {
     })),
   );
 
+  protected conditionBars = computed<BarItem[]>(() => {
+    const c = this.data()?.equipment_conditions ?? {};
+    const tone: Record<string, string> = { operational: 'success', needs_repair: 'warning', under_maintenance: 'primary', out_of_service: 'danger' };
+    return Object.entries(c).map(([k, v]) => ({ label: labelOf('condition', k), value: v, color: tone[k] }));
+  });
+
+  protected equipmentBars = computed<BarItem[]>(() =>
+    (this.data()?.by_equipment ?? []).map((e) => ({ label: `${e.name} (${e.code})`, value: e.requests, color: 'tertiary' })),
+  );
+
   protected facilityBars = computed<BarItem[]>(() =>
     (this.data()?.by_facility ?? []).map((f) => ({ label: f.name, value: f.total, color: 'tertiary' })),
   );
@@ -250,7 +299,7 @@ export class AnalyticsPage {
     const d = this.data();
     if (!d) return;
     const rows: (string | number)[][] = [
-      ['FacilityCare Report', d.label],
+      ['FacilityCare Maintenance Report', d.label],
       ['Period', `${d.from} to ${d.to}`],
       [],
       ['Summary'],
@@ -275,8 +324,18 @@ export class AnalyticsPage {
       ['Facility', 'Reports'],
       ...d.by_facility.map((f) => [f.name, f.total]),
       [],
-      ['Personnel', 'Completed', 'Avg hours'],
-      ...d.by_personnel.map((p) => [p.name, p.completed, p.avg_hours]),
+      ['Corrective repairs completed', d.summary.corrective_completed],
+      ['Preventive services completed', d.summary.preventive_completed],
+      [],
+      ['Equipment condition (now)', 'Items'],
+      ...Object.entries(d.equipment_conditions).map(([k, v]) => [labelOf('condition', k), v]),
+      ['Overdue preventive maintenance', d.summary.maintenance_overdue],
+      [],
+      ['Equipment', 'Requests'],
+      ...d.by_equipment.map((e) => [`${e.name} (${e.code})`, e.requests]),
+      [],
+      ['Technician', 'Specialization', 'Assigned', 'Completed', 'Active now', 'Overdue now', 'Avg hours'],
+      ...d.by_personnel.map((p) => [p.name, labelOf('category', p.specialization), p.assigned, p.completed, p.active_now, p.overdue_now, p.avg_hours ?? '']),
       [],
       ['Material / equipment', 'Type', 'Quantity', 'Unit', 'Cost (PHP)'],
       ...d.materials.map((m) => [m.name, m.type, m.quantity, m.unit ?? '', m.cost]),

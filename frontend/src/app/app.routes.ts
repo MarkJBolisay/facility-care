@@ -26,6 +26,13 @@ const page = {
   sendNotification: () =>
     import('./pages/notifications/send-notification.page').then((m) => m.SendNotificationPage),
   profile: () => import('./pages/profile/profile.page').then((m) => m.ProfilePage),
+  equipment: () => import('./pages/equipment/equipment-list.page').then((m) => m.EquipmentListPage),
+  equipmentDetail: () => import('./pages/equipment/equipment-detail.page').then((m) => m.EquipmentDetailPage),
+  equipmentForm: () => import('./pages/equipment/equipment-form.page').then((m) => m.EquipmentFormPage),
+  preventive: () => import('./pages/equipment/preventive.page').then((m) => m.PreventivePage),
+  technicians: () => import('./pages/technicians/technicians.page').then((m) => m.TechniciansPage),
+  technicianDetail: () => import('./pages/technicians/technician-detail.page').then((m) => m.TechnicianDetailPage),
+  activity: () => import('./pages/admin/activity.page').then((m) => m.ActivityPage),
 };
 
 const admin = roleGuard('admin');
@@ -46,6 +53,7 @@ export const routes: Routes = [
       { path: 'dashboard', canActivate: [admin], loadComponent: page.adminDashboard },
       { path: 'reports', canActivate: [admin], loadComponent: page.reports },
       { path: 'work-orders', canActivate: [admin], loadComponent: page.workOrders, data: { scope: 'all' } },
+      { path: 'equipment', canActivate: [admin], loadComponent: page.equipment },
       { path: 'facilities', canActivate: [admin], loadComponent: page.facilities },
       { path: 'more', canActivate: [admin], loadComponent: page.more },
 
@@ -76,6 +84,15 @@ export const routes: Routes = [
   { path: 'facilities/new', canActivate: [authGuard, admin], loadComponent: page.facilityForm },
   { path: 'facilities/:id/edit', canActivate: [authGuard, admin], loadComponent: page.facilityForm },
   { path: 'facilities/:id', canActivate: [authGuard, staffSide], loadComponent: page.facilityDetail },
+  { path: 'equipment/new', canActivate: [authGuard, admin], loadComponent: page.equipmentForm },
+  { path: 'equipment/:id/edit', canActivate: [authGuard, admin], loadComponent: page.equipmentForm },
+  { path: 'equipment/:id', canActivate: [authGuard, staffSide], loadComponent: page.equipmentDetail },
+  { path: 'equipment-list', canActivate: [authGuard, staffSide], loadComponent: page.equipment },
+  { path: 'preventive-maintenance', canActivate: [authGuard, admin], loadComponent: page.preventive },
+  { path: 'technicians', canActivate: [authGuard, admin], loadComponent: page.technicians },
+  { path: 'technicians/:id', canActivate: [authGuard, admin], loadComponent: page.technicianDetail },
+  { path: 'activity', canActivate: [authGuard, admin], loadComponent: page.activity },
+  { path: 'facilities-list', canActivate: [authGuard, admin], loadComponent: page.facilities },
   { path: 'users', canActivate: [authGuard, admin], loadComponent: page.users },
   { path: 'users/new', canActivate: [authGuard, admin], loadComponent: page.userForm },
   { path: 'users/:id', canActivate: [authGuard, admin], loadComponent: page.userForm },

@@ -1,6 +1,6 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { RouterLink, Router } from '@angular/router';
 import { ApiService } from '../../core/api.service';
 import { FACILITY_TYPES, Facility } from '../../core/models';
 import { UiService } from '../../core/ui.service';
@@ -17,7 +17,12 @@ interface Group {
   imports: [...IONIC, ...SHARED, FormsModule, RouterLink],
   template: `
     <ion-header>
-      <ion-toolbar><ion-title>Facility Management</ion-title></ion-toolbar>
+      <ion-toolbar>
+        @if (!inTabs) {
+          <ion-buttons slot="start"><ion-back-button defaultHref="/tabs/more" /></ion-buttons>
+        }
+        <ion-title>Facility Management</ion-title>
+      </ion-toolbar>
       <ion-toolbar>
         <ion-searchbar placeholder="Search name or code" [debounce]="250" [ngModel]="search()" (ngModelChange)="search.set($event)" />
       </ion-toolbar>
@@ -85,6 +90,8 @@ interface Group {
   styles: [`.nested { margin-left: 18px; } .building { --background: var(--fc-surface); }`],
 })
 export class FacilitiesPage {
+  /** Shown as a tab for admins; opened from a menu (with a back button) otherwise. */
+  protected inTabs = inject(Router).url.startsWith('/tabs');
   private api = inject(ApiService);
   private ui = inject(UiService);
 

@@ -245,5 +245,8 @@ class DatabaseSeeder extends Seeder
                 'batch_id' => 'welcome',
             ]);
         }
+
+        // Equipment profiles, preventive schedules and the activity history
+        $this->call(EquipmentSeeder::class);
     }
 }

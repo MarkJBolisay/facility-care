@@ -1,6 +1,6 @@
 import { Component, computed, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { ApiService } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
 import { CATEGORIES, ROLES, User } from '../../core/models';
@@ -87,6 +87,7 @@ export class UserFormPage {
   private ui = inject(UiService);
   private router = inject(Router);
   private auth = inject(AuthService);
+  private route = inject(ActivatedRoute);
 
   readonly id = input<string>();
   protected isEdit = computed(() => !!this.id());
@@ -113,6 +114,9 @@ export class UserFormPage {
 
   async ionViewWillEnter(): Promise<void> {
     if (this.ready()) return;
+    // e.g. "Add technician" opens this form with ?role=maintenance
+    const role = this.route.snapshot.queryParamMap.get('role');
+    if (!this.id() && role) this.form.role = role as typeof this.form.role;
     if (this.id()) {
       try {
         const u = await this.api.get<User & { reports_count: number; active_work_orders: number; completed_work_orders: number }>(`users/${this.id()}`);

@@ -3,9 +3,12 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Equipment;
 use App\Models\Report;
 use App\Models\User;
 use App\Models\WorkOrder;
+use App\Services\Priority;
+use App\Services\Reminders;
 use Illuminate\Http\Request;
 
 class DashboardController extends Controller
@@ -13,6 +16,9 @@ class DashboardController extends Controller
     public function __invoke(Request $request)
     {
         $user = $request->user();
+
+        // Overdue / preventive maintenance reminders (at most once an hour; also runs on the scheduler)
+        Reminders::runIfDue();
 
         return match ($user->role) {
             'admin' => $this->admin(),
@@ -51,6 +57,10 @@ class DashboardController extends Controller
             ->withCount(['assignedWorkOrders as active_count' => fn ($q) => $q->whereIn('status', WorkOrder::ACTIVE_STATUSES)])
             ->orderByDesc('active_count')->get(['id', 'name', 'is_available', 'specialization']);
 
+        // Approved reports that still have no work order (nobody has been assigned yet)
+        $awaitingAssignment = Report::where('status', 'approved')
+            ->whereDoesntHave('workOrders', fn ($q) => $q->where('status', '!=', 'cancelled'));
+
         return [
             'role' => 'admin',
             'reports' => [
@@ -61,6 +71,7 @@ class DashboardController extends Controller
                 'in_progress' => (int) ($byStatus['in_progress'] ?? 0),
                 'completed' => (int) ($byStatus['completed'] ?? 0),
                 'rejected' => (int) ($byStatus['rejected'] ?? 0),
+                'awaiting_assignment' => (clone $awaitingAssignment)->count(),
             ],
             'work_orders' => [
                 'pending' => (int) ($woByStatus['pending'] ?? 0),
@@ -74,6 +85,32 @@ class DashboardController extends Controller
             'trend' => $trend,
             'personnel' => $personnel,
             'recent_reports' => Report::with(['reporter:id,name', 'facility.parent'])->latest()->limit(5)->get(),
+            // Step 1 of the admin flow: new reports to review, highest priority score first
+            'review_queue' => Report::with(['reporter:id,name,role', 'facility.parent', 'equipment:id,code,name,importance'])
+                ->where('status', 'pending')->get()
+                ->each(fn ($r) => $r->priority_score = Priority::score($r))
+                ->sortByDesc('priority_score')->take(5)->values(),
+            // Equipment status summary and preventive maintenance that needs scheduling
+            'equipment' => $this->equipmentSummary(),
+            // Step 2: approved reports waiting for a maintenance person, most urgent first
+            'assign_queue' => (clone $awaitingAssignment)->with(['facility.parent'])
+                ->orderByRaw("CASE priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 ELSE 4 END")
+                ->oldest('reviewed_at')->limit(5)->get(),
+        ];
+    }
+
+    private function equipmentSummary(): array
+    {
+        $all = Equipment::with('facility.parent')->get();
+        $due = $all->filter(fn ($e) => in_array($e->maintenance_state, ['overdue', 'due_soon']))
+            ->sortBy('next_maintenance_due')->values();
+
+        return [
+            'total' => $all->count(),
+            'by_condition' => collect(Equipment::CONDITIONS)->mapWithKeys(fn ($c) => [$c => $all->where('condition', $c)->count()]),
+            'maintenance_overdue' => $all->where('maintenance_state', 'overdue')->count(),
+            'maintenance_due_soon' => $all->where('maintenance_state', 'due_soon')->count(),
+            'maintenance_due' => $due->take(4)->values(),
         ];
     }
 
@@ -93,7 +130,10 @@ class DashboardController extends Controller
                     ->whereDate('due_date', '<', today())->count(),
             ],
             'is_available' => $user->is_available,
-            'next_tasks' => (clone $mine)->with(['facility.parent', 'report:id,reference,photo'])
+            'next_tasks' => (clone $mine)->with(['facility.parent', 'report:id,reference,photo', 'equipment:id,code,name'])
+                // photo counts let the dashboard show which repair step comes next
+                ->withCount(['photos as before_photos_count' => fn ($q) => $q->where('type', 'before'),
+                    'photos as after_photos_count' => fn ($q) => $q->where('type', 'after')])
                 ->whereIn('status', WorkOrder::ACTIVE_STATUSES)
                 ->orderByRaw("CASE status WHEN 'in_progress' THEN 0 ELSE 1 END")
                 ->orderByRaw("CASE priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 ELSE 4 END")
@@ -118,7 +158,7 @@ class DashboardController extends Controller
                 'rejected' => (int) ($byStatus['rejected'] ?? 0),
             ],
             // Open reports, shown with a progress tracker on the home screen
-            'active_reports' => Report::with(['facility.parent', 'activeWorkOrder.assignee:id,name'])
+            'active_reports' => Report::with(['facility.parent', 'equipment:id,code,name', 'activeWorkOrder.assignee:id,name'])
                 ->where('user_id', $user->id)
                 ->whereIn('status', ['pending', 'approved', 'in_progress'])
                 ->latest()->limit(10)->get(),

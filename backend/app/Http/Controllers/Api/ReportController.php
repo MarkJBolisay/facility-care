@@ -3,8 +3,12 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
+use App\Models\Equipment;
 use App\Models\Report;
 use App\Services\Notifier;
+use App\Services\Priority;
+use Illuminate\Pagination\LengthAwarePaginator;
 use App\Support\Uploads;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -16,27 +20,58 @@ class ReportController extends Controller
     {
         $user = $request->user();
 
-        $query = Report::with(['reporter:id,name,role', 'facility.parent', 'activeWorkOrder.assignee:id,name'])
+        $query = Report::with(['reporter:id,name,role', 'facility.parent', 'equipment:id,code,name,importance', 'activeWorkOrder.assignee:id,name'])
             ->latest();
 
         if (! $user->isAdmin()) {
             $query->where('user_id', $user->id);
         }
 
-        foreach (['status', 'category', 'priority', 'facility_id'] as $field) {
+        foreach (['status', 'category', 'priority', 'severity', 'equipment_id'] as $field) {
             if ($request->filled($field)) {
                 $query->where($field, $request->input($field));
             }
+        }
+
+        // Location: a building includes all its rooms
+        if ($request->filled('facility_id')) {
+            $query->whereIn('facility_id', EquipmentController::facilityAndChildren((int) $request->input('facility_id')));
+        }
+        // Technician working on it
+        if ($request->filled('assigned_to')) {
+            $query->whereHas('workOrders', fn ($q) => $q->where('assigned_to', $request->input('assigned_to'))
+                ->where('status', '!=', 'cancelled'));
+        }
+        // Date submitted
+        if ($request->filled('from')) {
+            $query->whereDate('created_at', '>=', $request->input('from'));
+        }
+        if ($request->filled('to')) {
+            $query->whereDate('created_at', '<=', $request->input('to'));
         }
 
         if ($request->filled('search')) {
             $s = '%'.$request->input('search').'%';
             $query->where(fn ($q) => $q->where('title', 'like', $s)
                 ->orWhere('reference', 'like', $s)
-                ->orWhere('description', 'like', $s));
+                ->orWhere('description', 'like', $s)
+                ->orWhereHas('equipment', fn ($e) => $e->where('code', 'like', $s)->orWhere('name', 'like', $s)));
         }
 
-        return $query->paginate($request->integer('per_page', 20));
+        $perPage = $request->integer('per_page', 20);
+
+        // sort=score: highest recommended priority first (computed, so sorted in PHP)
+        if ($request->input('sort') === 'score') {
+            $all = $query->get()->each(fn ($r) => $r->priority_score = Priority::score($r))->sortByDesc('priority_score')->values();
+            $page = max(1, $request->integer('page', 1));
+
+            return new LengthAwarePaginator($all->forPage($page, $perPage)->values(), $all->count(), $perPage, $page);
+        }
+
+        $page = $query->paginate($perPage);
+        $page->getCollection()->each(fn ($r) => $r->priority_score = Priority::score($r));
+
+        return $page;
     }
 
     public function store(Request $request)
@@ -47,6 +82,8 @@ class ReportController extends Controller
             'title' => 'required|string|max:255',
             'description' => 'required|string|max:5000',
             'category' => ['nullable', Rule::in(Report::CATEGORIES)],
+            'equipment_id' => 'nullable|exists:equipment,id',
+            'severity' => ['nullable', Rule::in(Report::SEVERITIES)],
             'photo' => 'nullable|image|max:8192',
         ]);
 
@@ -54,12 +91,27 @@ class ReportController extends Controller
             $data['photo'] = Uploads::store($request->file('photo'), 'reports');
         }
 
+        // Reporting a piece of equipment fills in its location and repair category.
+        $equipment = ! empty($data['equipment_id']) ? Equipment::find($data['equipment_id']) : null;
+        if ($equipment) {
+            $data['facility_id'] = $data['facility_id'] ?? $equipment->facility_id;
+            $data['category'] = $data['category'] ?? $equipment->repairCategory();
+        }
+
         $report = Report::create([...$data, 'user_id' => $request->user()->id, 'status' => 'pending']);
+
+        ActivityLog::record('submitted', "Request submitted by {$request->user()->name}.", $request->user(), $report);
+
+        if ($equipment && $equipment->condition === 'operational') {
+            $equipment->update(['condition' => 'needs_repair']);
+            ActivityLog::record('condition_changed', "{$equipment->code} marked as Needs Repair because of {$report->reference}.",
+                $request->user(), $report, equipment: $equipment, from: 'operational', to: 'needs_repair');
+        }
 
         Notifier::send(
             Notifier::admins(),
-            'New facility report',
-            "{$request->user()->name} reported: {$report->title} ({$report->reference})",
+            'New repair request',
+            "{$request->user()->name} reported: {$report->title} ({$report->reference})".($equipment ? " — {$equipment->name}" : ''),
             'report',
             $report,
         );
@@ -71,7 +123,12 @@ class ReportController extends Controller
     {
         $this->authorizeView($request, $report);
 
-        return $this->load($report);
+        $report = $this->load($report);
+        if ($request->user()->isAdmin()) {
+            $report->priority_assessment = Priority::assess($report);
+        }
+
+        return $report;
     }
 
     /** Admin: categorize, set priority, fix the facility. */
@@ -88,7 +145,17 @@ class ReportController extends Controller
         ]);
 
         $oldPriority = $report->priority;
+        $oldCategory = $report->category;
         $report->update($data);
+
+        if (array_key_exists('priority', $data) && $data['priority'] !== $oldPriority) {
+            ActivityLog::record('priority_changed', 'Priority set to '.ucfirst($data['priority'] ?? 'none').'.',
+                $request->user(), $report, from: $oldPriority, to: $data['priority']);
+        }
+        if (array_key_exists('category', $data) && $data['category'] !== $oldCategory) {
+            ActivityLog::record('category_changed', 'Category set to '.EquipmentController::label($data['category'] ?? 'none').'.',
+                $request->user(), $report, from: $oldCategory, to: $data['category']);
+        }
 
         // Keep the work order's priority in step with the report.
         if (array_key_exists('priority', $data) && $data['priority'] && $report->activeWorkOrder) {
@@ -122,12 +189,16 @@ class ReportController extends Controller
             return response()->json(['message' => 'Only pending or rejected reports can be approved.'], 422);
         }
 
+        $from = $report->status;
         $report->update([
             ...array_filter($data, fn ($v) => $v !== null),
             'status' => 'approved',
             'reviewed_by' => $request->user()->id,
             'reviewed_at' => now(),
         ]);
+
+        ActivityLog::record('approved', 'Request approved'.($report->priority ? ' as '.ucfirst($report->priority).' priority' : '').'.',
+            $request->user(), $report, from: $from, to: 'approved');
 
         Notifier::send(
             $report->user_id,
@@ -158,6 +229,8 @@ class ReportController extends Controller
             'reviewed_by' => $request->user()->id,
             'reviewed_at' => now(),
         ]);
+
+        ActivityLog::record('rejected', "Request rejected: {$data['admin_remarks']}", $request->user(), $report, to: 'rejected');
 
         // Cancel any open work order for this report.
         $report->workOrders()->whereIn('status', ['pending'])->update(['status' => 'cancelled']);
@@ -205,8 +278,10 @@ class ReportController extends Controller
         return $report->load([
             'reporter:id,name,email,role,department,phone',
             'facility.parent',
+            'equipment.facility.parent',
             'reviewer:id,name',
             'workOrders' => fn ($q) => $q->latest()->with('assignee:id,name,phone'),
+            'activities.user:id,name,role',
         ]);
     }
 }

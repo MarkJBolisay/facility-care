@@ -1,11 +1,14 @@
 <?php
 
+use App\Http\Controllers\Api\ActivityController;
 use App\Http\Controllers\Api\AnalyticsController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\DashboardController;
+use App\Http\Controllers\Api\EquipmentController;
 use App\Http\Controllers\Api\FacilityController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\ReportController;
+use App\Http\Controllers\Api\TechnicianController;
 use App\Http\Controllers\Api\UserController;
 use App\Http\Controllers\Api\WorkOrderController;
 use Illuminate\Support\Facades\Route;
@@ -32,6 +35,12 @@ Route::middleware('auth:sanctum')->group(function () {
     // Facilities list is needed by everyone (report form, work orders)
     Route::get('/facilities', [FacilityController::class, 'index']);
     Route::get('/facilities/{facility}', [FacilityController::class, 'show']);
+
+    // Equipment list/profile is needed by everyone (requesters pick the item they are reporting)
+    Route::get('/equipment', [EquipmentController::class, 'index']);
+    Route::get('/equipment/summary', [EquipmentController::class, 'summary'])->middleware('role:admin,maintenance');
+    Route::get('/equipment/{equipment}', [EquipmentController::class, 'show']);
+    Route::get('/equipment/{equipment}/history', [EquipmentController::class, 'history'])->middleware('role:admin,maintenance');
 
     // Reports: reporters submit/see their own, admin sees all
     Route::get('/reports', [ReportController::class, 'index']);
@@ -69,6 +78,18 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::apiResource('users', UserController::class);
 
         Route::get('/analytics', AnalyticsController::class);
+
+        Route::post('/equipment', [EquipmentController::class, 'store']);
+        Route::put('/equipment/{equipment}', [EquipmentController::class, 'update']);
+        Route::delete('/equipment/{equipment}', [EquipmentController::class, 'destroy']);
+        Route::get('/preventive-maintenance', [EquipmentController::class, 'preventive']);
+        Route::post('/equipment/{equipment}/schedule', [EquipmentController::class, 'schedule']);
+
+        Route::get('/technicians', [TechnicianController::class, 'index']);
+        Route::get('/technicians/{technician}', [TechnicianController::class, 'show']);
+        Route::put('/technicians/{technician}', [TechnicianController::class, 'update']);
+
+        Route::get('/activity', [ActivityController::class, 'index']);
 
         Route::post('/notifications/send', [NotificationController::class, 'send']);
         Route::get('/notifications/sent', [NotificationController::class, 'sent']);

@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Equipment;
 use App\Models\Report;
+use App\Models\User;
 use App\Models\WorkOrder;
 use App\Models\WorkOrderMaterial;
 use Carbon\Carbon;
@@ -29,7 +31,7 @@ class AnalyticsController extends Controller
 
         [$from, $to, $label] = $this->range($data);
 
-        $reports = Report::with('facility.parent')->whereBetween('created_at', [$from, $to])->get();
+        $reports = Report::with(['facility.parent', 'equipment:id,code,name'])->whereBetween('created_at', [$from, $to])->get();
 
         // Work orders completed inside the range (with their report for resolution time)
         $completed = WorkOrder::with(['assignee:id,name', 'report:id,created_at', 'materials', 'facility.parent'])
@@ -57,11 +59,41 @@ class AnalyticsController extends Controller
             ])
             ->sortByDesc('cost')->values()->take(10);
 
-        $byPersonnel = $completed->groupBy('assigned_to')->map(fn ($items) => [
-            'name' => $items->first()->assignee?->name ?? 'Unassigned',
-            'completed' => $items->count(),
-            'avg_hours' => round($items->avg(fn ($wo) => ($wo->started_at ?? $wo->created_at)->diffInMinutes($wo->completed_at) / 60), 1),
-        ])->sortByDesc('completed')->values();
+        // Technician workload: everyone, including those with nothing completed in this period
+        $byPersonnel = User::where('role', 'maintenance')->where('is_active', true)
+            ->withCount([
+                'assignedWorkOrders as active_now' => fn ($q) => $q->whereIn('status', WorkOrder::ACTIVE_STATUSES),
+                'assignedWorkOrders as overdue_now' => fn ($q) => $q->whereIn('status', WorkOrder::ACTIVE_STATUSES)
+                    ->whereDate('due_date', '<', today()),
+            ])
+            ->get()
+            ->map(function ($tech) use ($completed, $created) {
+                $done = $completed->where('assigned_to', $tech->id);
+
+                return [
+                    'name' => $tech->name,
+                    'specialization' => $tech->specialization,
+                    'assigned' => $created->where('assigned_to', $tech->id)->count(),
+                    'completed' => $done->count(),
+                    'active_now' => $tech->active_now,
+                    'overdue_now' => $tech->overdue_now,
+                    'avg_hours' => $done->count()
+                        ? round($done->avg(fn ($wo) => ($wo->started_at ?? $wo->created_at)->diffInMinutes($wo->completed_at) / 60), 1)
+                        : null,
+                ];
+            })
+            ->sortByDesc('completed')->values();
+
+        // Equipment: current condition of everything, and the equipment that needed the most work in this period
+        $equipment = Equipment::all();
+        $equipmentConditions = collect(Equipment::CONDITIONS)->mapWithKeys(fn ($c) => [$c => $equipment->where('condition', $c)->count()]);
+        $byEquipment = $reports->whereNotNull('equipment_id')->groupBy('equipment_id')
+            ->map(fn ($items) => [
+                'code' => $items->first()->equipment?->code,
+                'name' => $items->first()->equipment?->name ?? 'Removed equipment',
+                'requests' => $items->count(),
+            ])
+            ->sortByDesc('requests')->values()->take(10);
 
         $byFacility = $reports->groupBy(fn ($r) => $r->facility?->full_name ?? 'Unspecified')
             ->map(fn ($items, $name) => ['name' => $name, 'total' => $items->count()])
@@ -90,7 +122,13 @@ class AnalyticsController extends Controller
                 'repairs_completed' => $completed->count(),
                 'avg_resolution_hours' => $resolutionHours->count() ? round($resolutionHours->avg(), 1) : null,
                 'materials_cost' => round($completed->sum('materials_cost'), 2),
+                'corrective_completed' => $completed->where('type', 'corrective')->count(),
+                'preventive_completed' => $completed->where('type', 'preventive')->count(),
+                'equipment_total' => $equipment->count(),
+                'maintenance_overdue' => $equipment->where('maintenance_state', 'overdue')->count(),
             ],
+            'equipment_conditions' => $equipmentConditions,
+            'by_equipment' => $byEquipment,
             'by_category' => $count($reports, 'category'),
             'by_priority' => $count($reports, 'priority'),
             'by_facility' => $byFacility,

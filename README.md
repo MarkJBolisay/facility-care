@@ -46,7 +46,7 @@ npm start          # or: ionic serve
 | Role | Email |
 |---|---|
 | Administrator | admin@facilitycare.test |
-| Maintenance | ramon@ / jose@ / mario@ / liza@facilitycare.test |
+| Technician | ramon@ (electrical) / jose@ (plumbing) / mario@ (carpentry) / liza@ (aircon) / paolo@ (IT) facilitycare.test |
 | Student | student@facilitycare.test, ana@facilitycare.test |
 | Faculty | faculty@facilitycare.test, maria@facilitycare.test |
 | Staff | staff@facilitycare.test |
@@ -58,41 +58,47 @@ cd backend
 php artisan migrate:fresh --seed
 ```
 
+To add only the equipment module's sample data to an existing database:
+
+```bash
+cd backend
+php artisan migrate
+php artisan db:seed --class=EquipmentSeeder
+```
+
+### Reminders (overdue tasks, preventive maintenance)
+
+Reminders are sent automatically when someone opens a dashboard (at most once an hour).
+To also run them on a fixed daily schedule (7:00 AM), keep this running next to the server:
+
+```bash
+cd backend
+php artisan schedule:work          # or run once: php artisan facilitycare:reminders
+```
+
 ## Features
 
-### Administrator
-| Feature | Where in the app |
-|---|---|
-| Admin Dashboard | **Dashboard** tab: totals, pending/in progress/completed, items needing attention, 6-month trend, open issues by priority/category, personnel workload |
-| Report Management | **Reports** tab: search and filter; open a report to approve, reject (with reason), and set the category |
-| Priority Management | Report detail: Low / Medium / High / Critical (also updates the linked work order) |
-| Maintenance Assignment | Report detail → *Assign maintenance personnel*: lists personnel by availability and workload, and suggests someone with the matching specialization |
-| Work Order Management | **Work Orders** tab: create standalone/preventive work orders, edit, reassign, cancel, and track status |
-| Facility Management | **Facilities** tab: buildings with their rooms, labs, offices, restrooms and outdoor areas; add/edit/delete; set status |
-| Maintenance History | Open any facility to see its past issues, repairs, and material costs (a building includes its rooms) |
-| User Management | More → User Management: student, faculty, staff, maintenance and admin accounts; activate/deactivate; reset password |
-| Reports and Analytics | More → Reports & Analytics: monthly, quarterly, yearly or custom range; export to CSV (opens in Excel) |
-| Notification Management | More → Notification Management: send to the people on a repair request, a whole role, chosen users, or everyone; templates; sent history with read counts |
+| # | Feature | Where in the app |
+|---|---|---|
+| 1 | Technician Account Management | More → **Technicians**: specialization, availability, active/overdue/completed tasks, average repair time, assigned tasks |
+| 2 | Equipment Category and Status Management | **Equipment** tab: categories (computer, aircon, projector, safety, …), location, and condition — Operational, Needs Repair, Under Maintenance, Out of Service. Condition also updates automatically from requests and repairs |
+| 3 | Maintenance History | Equipment profile → *History*: problem reported, actions performed, parts replaced (with cost), technician, service dates |
+| 4 | Priority Level Management | Request review: Low / Medium / High (and Critical for safety hazards) |
+| 5 | Equipment Profile Management | Equipment → add/edit: equipment ID, name, model, serial number, department, location, acquisition date, condition, importance |
+| 6 | Repair Request and Activity History | Activity history on every request, work order and equipment; More → **Activity History** for the whole system (filter by action, person, date) |
+| 7 | Maintenance Reports | More → **Maintenance Reports**: requests, equipment conditions, completed maintenance (repairs vs preventive), technician workload; monthly / quarterly / yearly / custom; CSV export |
+| 8 | Repair Request Submission | Requesters: **Report** tab — location, the equipment item, how bad it is (minor / moderate / severe), description, photo |
+| 9 | Role-Based User Access | Requesters (student/faculty/staff), Technicians and Administrators each get their own tabs, screens and permissions |
+| 10 | Technician Task Assignment | *Approve & assign* or New work order: technician, target date; progress shown on the request and the dashboards |
+| 11 | Search and Advanced Filtering | Requests, Work Orders and Equipment: search + filters for category, location, status, technician, severity, type and date range |
+| 12 | Repair Documentation | Work order steps: before and after photos, materials/parts, actions taken, remarks, condition after repair |
+| 13 | Notifications and Reminders | New assignments → technician; status changes → requester and admins; overdue tasks and due preventive maintenance → reminders |
+| 14 | Dashboard and Data Persistence | Dashboards per role: pending/in-progress/completed, equipment status summary, preventive maintenance due; SQLite database |
+| 15 | Automated Repair Request Prioritization | Request review shows a recommended priority with a score (0–100) = equipment importance (40) + reported severity (40) + waiting time (20); *Use* applies it. Requests can be sorted by score |
+| 16 | Smart Technician Assignment | Assign screen ranks technicians: specialization match (45) + available (25) + light workload (30) − overdue tasks; the best match is preselected and marked *Recommended* |
+| 17 | Preventive Maintenance Scheduling | Each equipment item can have a service interval; next due date = last service + interval; More → **Preventive Maintenance** lists overdue / due soon, and *Schedule* creates the work order with the recommended technician |
 
-### Maintenance personnel
-| Feature | Where in the app |
-|---|---|
-| Maintenance Dashboard | **Dashboard** tab: pending, in progress, done this month, overdue, next tasks, availability switch |
-| Assigned Work Orders | **My Tasks** tab: location, description, reporter's photo, priority, due date |
-| Repair Status Update | Work order: *Start repair* (Pending → In Progress) → *Mark as completed* |
-| Repair Documentation | Work order: before and after photos (camera or gallery; resized before upload) |
-| Materials Used Recording | Work order: materials and equipment with quantity, unit, and unit cost (total cost is calculated) |
-| Maintenance History | **History** tab: completed and cancelled tasks |
-| Completion Report | Required when completing: actions taken, remarks, date completed |
-
-### Students / faculty / staff (reporters)
-Sign up, submit a report with a photo and location, follow its progress step by step, and get notified when it is approved, assigned, started, or completed.
-
-### Automatic notifications
-- New report → all admins
-- Approved / rejected / priority changed → the reporter
-- Work order assigned → the personnel and the reporter
-- Repair started / completed → the reporter and the admins
+Out of scope (as specified): AI damage diagnosis, IoT monitoring, failure prediction, procurement, depreciation.
 
 The app checks for new notifications every 30 seconds (badge on the tab bar).
 
@@ -126,6 +132,9 @@ All routes are under `/api` and use a Bearer token from `POST /api/login`.
 | Reports | `GET/POST reports`, `GET/PUT/DELETE reports/{id}`, `POST reports/{id}/approve`, `POST reports/{id}/reject` |
 | Work orders | `GET/POST work-orders`, `GET/PUT/DELETE work-orders/{id}`, `POST work-orders/{id}/status`, `POST work-orders/{id}/photos`, `DELETE work-order-photos/{id}`, `POST work-orders/{id}/materials`, `DELETE work-order-materials/{id}`, `GET personnel` |
 | Facilities | `GET/POST facilities`, `GET/PUT/DELETE facilities/{id}`, `GET facilities/{id}/history` |
+| Equipment | `GET/POST equipment`, `GET equipment/summary`, `GET/PUT/DELETE equipment/{id}`, `GET equipment/{id}/history`, `POST equipment/{id}/schedule`, `GET preventive-maintenance` |
+| Technicians | `GET technicians`, `GET/PUT technicians/{id}`, `GET personnel?category=` (ranked for assignment) |
+| Activity | `GET activity?action=&user_id=&from=&to=&search=` |
 | Users | `GET/POST users`, `GET/PUT/DELETE users/{id}`, `GET users/counts` |
 | Analytics | `GET analytics?period=monthly|quarterly|yearly|custom&year=&month=&quarter=&from=&to=` |
 | Notifications | `GET notifications`, `GET notifications/unread-count`, `POST notifications/{id}/read`, `POST notifications/read-all`, `POST notifications/send`, `GET notifications/sent` |

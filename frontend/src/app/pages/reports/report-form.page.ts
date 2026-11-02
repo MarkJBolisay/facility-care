@@ -1,10 +1,10 @@
-import { Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectorRef, Component, computed, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { ApiService } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
 import { pickPhoto, resizeImage } from '../../core/image';
-import { CATEGORIES, Facility, Report } from '../../core/models';
+import { CATEGORIES, Equipment, Facility, Report, SEVERITIES } from '../../core/models';
 import { UiService } from '../../core/ui.service';
 import { IONIC } from '../../shared/ionic';
 
@@ -37,7 +37,7 @@ import { IONIC } from '../../shared/ionic';
               </ion-select>
             </ion-item>
             <ion-item>
-              <ion-select label="Room / Area" labelPlacement="stacked" name="facility" interface="action-sheet" placeholder="Select room, lab or area" [(ngModel)]="form.facility_id" [disabled]="!buildingId() && !standalone().length">
+              <ion-select label="Room / Area" labelPlacement="stacked" name="facility" interface="action-sheet" placeholder="Select room, lab or area" [ngModel]="form.facility_id" (ngModelChange)="pickRoom($event)" [disabled]="!buildingId() && !standalone().length">
                 @if (buildingId()) {
                   <ion-select-option [value]="buildingId()">Whole building / common area</ion-select-option>
                 }
@@ -46,6 +46,16 @@ import { IONIC } from '../../shared/ionic';
                 }
               </ion-select>
             </ion-item>
+            @if (equipment().length) {
+              <ion-item>
+                <ion-select label="Equipment (optional)" labelPlacement="stacked" name="equipment" interface="action-sheet" placeholder="Is it a specific equipment?" [(ngModel)]="form.equipment_id">
+                  <ion-select-option [value]="null">Not a specific equipment</ion-select-option>
+                  @for (e of equipment(); track e.id) {
+                    <ion-select-option [value]="e.id">{{ e.name }} ({{ e.code }})</ion-select-option>
+                  }
+                </ion-select>
+              </ion-item>
+            }
             <ion-item>
               <ion-input label="Exact location (optional)" labelPlacement="stacked" name="loc" placeholder="e.g. Near the back door" [(ngModel)]="form.location_details" />
             </ion-item>
@@ -60,6 +70,16 @@ import { IONIC } from '../../shared/ionic';
               <ion-textarea label="Description" labelPlacement="stacked" name="description" [autoGrow]="true" rows="4" placeholder="Describe what's wrong, since when, and how it affects classes." [(ngModel)]="form.description" required />
             </ion-item>
           </ion-list>
+        </div>
+
+        <div class="section-title">How bad is it?</div>
+        <div class="severity-pick" role="radiogroup" aria-label="How bad is it?">
+          @for (s of severities; track s.value) {
+            <button type="button" role="radio" [attr.aria-checked]="form.severity === s.value"
+              [class]="'sev sev-' + s.value" [class.active]="form.severity === s.value" (click)="form.severity = s.value">
+              <strong>{{ s.label }}</strong><span>{{ s.hint }}</span>
+            </button>
+          }
         </div>
 
         <div class="section-title">Photo</div>
@@ -89,12 +109,17 @@ export class ReportFormPage {
   private api = inject(ApiService);
   private ui = inject(UiService);
   private router = inject(Router);
+  private route = inject(ActivatedRoute);
+  private cdr = inject(ChangeDetectorRef);
   protected auth = inject(AuthService);
+  private followUpOf: string | null = null;
 
   protected inTabs = this.router.url.startsWith('/tabs');
   protected categories = CATEGORIES;
   protected facilities = signal<Facility[]>([]);
   protected buildingId = signal<number | null>(null);
+  protected equipment = signal<Equipment[]>([]);
+  protected severities = SEVERITIES;
   protected buildings = computed(() => this.facilities().filter((f) => f.type === 'building' || (!f.parent_id && f.type !== 'building')));
   protected standalone = computed(() => this.facilities().filter((f) => !f.parent_id && f.type !== 'building'));
   protected rooms = computed(() => this.facilities().filter((f) => f.parent_id === this.buildingId()));
@@ -111,13 +136,57 @@ export class ReportFormPage {
         (err) => this.ui.error(err),
       );
     }
+    // "Report it again" from a fixed/rejected report: ?followUp=<report id>
+    const followUp = this.route.snapshot.queryParamMap.get('followUp');
+    if (followUp && followUp !== this.followUpOf) {
+      this.followUpOf = followUp;
+      void this.prefillFrom(followUp);
+    }
+  }
+
+  /** Fill the form from an earlier report so the reporter only has to say what is still wrong. */
+  private async prefillFrom(id: string): Promise<void> {
+    try {
+      const old = await this.api.get<Report>(`reports/${id}`);
+      const f = old.facility;
+      this.buildingId.set(f ? (f.parent_id ?? f.id) : null);
+      this.form = {
+        title: old.title.startsWith('Still not fixed: ') ? old.title : 'Still not fixed: ' + old.title,
+        description: `Follow-up to ${old.reference}. ${old.description}\n\nWhat is still wrong: `,
+        facility_id: old.facility_id,
+        equipment_id: old.equipment_id,
+        location_details: old.location_details ?? '',
+        category: old.category ?? '',
+        severity: old.severity ?? '',
+      };
+      this.pickRoom(old.facility_id, true);
+      this.cdr.markForCheck();
+      await this.ui.toast('Details copied from ' + old.reference + '. Add what is still wrong.');
+    } catch (err) {
+      await this.ui.error(err);
+    }
   }
 
   pickBuilding(id: number): void {
     this.buildingId.set(id);
     const picked = this.facilities().find((f) => f.id === id);
     // Outdoor areas etc. without a parent are selectable directly.
-    this.form.facility_id = picked && picked.type !== 'building' ? id : null;
+    this.pickRoom(picked && picked.type !== 'building' ? id : null);
+  }
+
+  /** Choosing a room loads the equipment in it, so the requester can say which item is broken. */
+  pickRoom(id: number | null, keepEquipment = false): void {
+    this.form.facility_id = id;
+    if (!keepEquipment) this.form.equipment_id = null;
+    this.equipment.set([]);
+    if (!id) return;
+    this.api.get<Equipment[]>('equipment', { facility_id: id }).then(
+      (list) => {
+        this.equipment.set(list.filter((e) => e.condition !== 'out_of_service'));
+        this.cdr.markForCheck();
+      },
+      () => undefined,
+    );
   }
 
   async choosePhoto(): Promise<void> {
@@ -148,7 +217,9 @@ export class ReportFormPage {
       await this.ui.toast(`Report ${report.reference} submitted. Thank you!`, 'success');
       this.form = this.blank();
       this.buildingId.set(null);
+      this.equipment.set([]);
       this.clearPhoto();
+      this.followUpOf = null;
       await this.router.navigate(['/reports', report.id]);
     } catch (err) {
       await this.ui.error(err);
@@ -168,8 +239,10 @@ export class ReportFormPage {
       title: '',
       description: '',
       facility_id: null as number | null,
+      equipment_id: null as number | null,
       location_details: '',
       category: '',
+      severity: '',
     };
   }
 }

@@ -3,7 +3,7 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { ApiService } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
-import { PRIORITIES, Paginated, WORK_ORDER_STATUSES, WorkOrder } from '../../core/models';
+import { Facility, PRIORITIES, Paginated, User, WORK_ORDER_STATUSES, WORK_ORDER_TYPES, WorkOrder } from '../../core/models';
 import { UiService } from '../../core/ui.service';
 import { IONIC } from '../../shared/ionic';
 import { SHARED, completeRefresh } from '../../shared/ui';
@@ -21,9 +21,13 @@ import { SHARED, completeRefresh } from '../../shared/ui';
       <ion-toolbar>
         <ion-title>{{ title }}</ion-title>
       </ion-toolbar>
-      <ion-toolbar>
-        <ion-searchbar placeholder="Search work orders" [debounce]="400" [(ngModel)]="search" (ionInput)="reload()" />
-      </ion-toolbar>
+      <div class="filter-bar">
+        <ion-searchbar placeholder="Title, reference or equipment" [debounce]="400" [(ngModel)]="search" (ionInput)="reload()" />
+        <ion-button fill="outline" size="small" (click)="showFilters.set(!showFilters())">
+          <ion-icon slot="start" name="options-outline" /> Filter
+          @if (filterCount()) { <span class="filter-count">{{ filterCount() }}</span> }
+        </ion-button>
+      </div>
       @if (scope === 'all') {
         <div class="toolbar-chips">
           <ion-chip [outline]="status !== '' || attention !== ''" [color]="status === '' && attention === '' ? 'primary' : 'medium'" (click)="setStatus('')">All</ion-chip>
@@ -46,6 +50,47 @@ import { SHARED, completeRefresh } from '../../shared/ui';
     <ion-content class="ion-padding page">
       <ion-refresher slot="fixed" (ionRefresh)="reload($event)"><ion-refresher-content /></ion-refresher>
       <div class="max">
+        @if (showFilters()) {
+          <div class="panel">
+            <ion-list lines="full">
+              @if (scope === 'all') {
+                <ion-item>
+                  <ion-select label="Technician" interface="action-sheet" [(ngModel)]="technicianId" (ionChange)="reload()">
+                    <ion-select-option [value]="0">Anyone</ion-select-option>
+                    @for (t of technicians(); track t.id) {
+                      <ion-select-option [value]="t.id">{{ t.name }}</ion-select-option>
+                    }
+                  </ion-select>
+                </ion-item>
+              }
+              <ion-item>
+                <ion-select label="Location" interface="action-sheet" [(ngModel)]="facilityId" (ionChange)="reload()">
+                  <ion-select-option [value]="0">Anywhere</ion-select-option>
+                  @for (f of facilities(); track f.id) {
+                    <ion-select-option [value]="f.id">{{ f.full_name }}</ion-select-option>
+                  }
+                </ion-select>
+              </ion-item>
+              <ion-item>
+                <ion-select label="Type" interface="popover" [(ngModel)]="type" (ionChange)="reload()">
+                  <ion-select-option value="">Any</ion-select-option>
+                  @for (t of types; track t.value) {
+                    <ion-select-option [value]="t.value">{{ t.label }}</ion-select-option>
+                  }
+                </ion-select>
+              </ion-item>
+              <ion-item>
+                <ion-input label="From" labelPlacement="fixed" type="date" [(ngModel)]="from" (ionChange)="reload()" />
+              </ion-item>
+              <ion-item>
+                <ion-input label="To" labelPlacement="fixed" type="date" [(ngModel)]="to" (ionChange)="reload()" />
+              </ion-item>
+            </ion-list>
+            @if (filterCount()) {
+              <ion-button fill="clear" size="small" (click)="clearFilters()">Clear filters</ion-button>
+            }
+          </div>
+        }
         <ion-list class="cards">
           @for (w of items(); track w.id) {
             <ion-item button detail [routerLink]="['/work-orders', w.id]">
@@ -56,6 +101,9 @@ import { SHARED, completeRefresh } from '../../shared/ui';
                 <h3>{{ w.title }}</h3>
                 <p>{{ w.reference }}{{ w.report ? ' · ' + w.report.reference : '' }}</p>
                 <p><ion-icon name="location-outline" /> {{ w.facility?.full_name || 'No location' }}</p>
+                @if (w.equipment) {
+                  <p><ion-icon name="desktop-outline" /> {{ w.equipment.name }} ({{ w.equipment.code }})</p>
+                }
                 @if (scope === 'all') {
                   <p><ion-icon name="person-outline" /> {{ w.assignee?.name || 'Unassigned' }}</p>
                 }
@@ -69,12 +117,13 @@ import { SHARED, completeRefresh } from '../../shared/ui';
                 <div class="pills">
                   <app-badge kind="status" [value]="w.status" />
                   <app-badge kind="priority" [value]="w.priority" />
+                  @if (w.type === 'preventive') { <ion-badge color="tertiary" class="pill">Preventive</ion-badge> }
                 </div>
               </ion-label>
             </ion-item>
           } @empty {
             @if (!loading()) {
-              <app-empty [text]="scope === 'active' ? 'No assigned tasks. 🎉' : 'No work orders found.'" icon="hammer-outline" />
+              <app-empty [text]="scope === 'active' ? 'No assigned tasks.' : 'No work orders found.'" icon="hammer-outline" />
             }
           }
         </ion-list>
@@ -104,6 +153,16 @@ export class WorkOrdersPage {
   protected scope: 'all' | 'active' | 'history' = this.route.snapshot.data['scope'] ?? 'all';
   protected title = { all: 'Work Orders', active: 'My Tasks', history: 'Maintenance History' }[this.scope];
   protected statuses = WORK_ORDER_STATUSES;
+  protected types = WORK_ORDER_TYPES;
+  protected facilities = signal<Facility[]>([]);
+  protected technicians = signal<User[]>([]);
+  protected showFilters = signal(false);
+  protected filterCount = signal(0);
+  technicianId = 0;
+  facilityId = 0;
+  type = '';
+  from = '';
+  to = '';
   protected priorities = PRIORITIES;
 
   search = '';
@@ -126,6 +185,10 @@ export class WorkOrdersPage {
       this.attention = q.get('attention') ?? '';
     }
     this.appliedQuery = key;
+    if (!this.facilities().length) {
+      this.api.get<Facility[]>('facilities').then((f) => this.facilities.set(f), () => undefined);
+      if (this.auth.isAdmin()) this.api.get<User[]>('technicians').then((t) => this.technicians.set(t), () => undefined);
+    }
     void this.reload();
   }
 
@@ -139,6 +202,15 @@ export class WorkOrdersPage {
   setAttention(v: string): void {
     this.attention = this.attention === v ? '' : v;
     this.status = '';
+    void this.reload();
+  }
+
+  clearFilters(): void {
+    this.technicianId = 0;
+    this.facilityId = 0;
+    this.type = '';
+    this.from = '';
+    this.to = '';
     void this.reload();
   }
 
@@ -171,7 +243,13 @@ export class WorkOrdersPage {
         attention: this.attention,
         priority: this.priority,
         scope: this.scope === 'all' ? '' : this.scope,
+        assigned_to: this.technicianId || '',
+        facility_id: this.facilityId || '',
+        type: this.type,
+        from: this.from,
+        to: this.to,
       });
+      this.filterCount.set([this.technicianId, this.facilityId, this.type, this.from, this.to].filter((v) => !!v).length);
       this.items.set(page === 1 ? res.data : [...this.items(), ...res.data]);
       this.page.set(res.current_page);
       this.lastPage.set(res.last_page);

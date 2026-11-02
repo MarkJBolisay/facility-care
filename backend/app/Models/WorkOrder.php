@@ -13,16 +13,20 @@ class WorkOrder extends Model
     /** Statuses still counted as "on someone's plate". */
     public const ACTIVE_STATUSES = ['pending', 'in_progress'];
 
+    /** corrective = fixing a reported problem · preventive = scheduled servicing */
+    public const TYPES = ['corrective', 'preventive'];
+
     protected $fillable = [
-        'reference', 'report_id', 'facility_id', 'title', 'description', 'category', 'priority',
+        'reference', 'report_id', 'facility_id', 'equipment_id', 'title', 'description', 'category', 'type', 'priority',
         'status', 'assigned_to', 'created_by', 'assigned_at', 'due_date', 'started_at',
-        'completed_at', 'actions_taken', 'remarks',
+        'completed_at', 'actions_taken', 'remarks', 'condition_after', 'overdue_notified_at',
     ];
 
     protected $casts = [
         'assigned_at' => 'datetime',
         'started_at' => 'datetime',
         'completed_at' => 'datetime',
+        'overdue_notified_at' => 'datetime',
         'due_date' => 'date:Y-m-d',
     ];
 
@@ -66,6 +70,16 @@ class WorkOrder extends Model
     public function facility(): BelongsTo
     {
         return $this->belongsTo(Facility::class);
+    }
+
+    public function equipment(): BelongsTo
+    {
+        return $this->belongsTo(Equipment::class);
+    }
+
+    public function activities(): HasMany
+    {
+        return $this->hasMany(ActivityLog::class)->latest('created_at')->latest('id');
     }
 
     public function assignee(): BelongsTo

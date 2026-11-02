@@ -30,7 +30,7 @@ interface History {
   template: `
     <ion-header>
       <ion-toolbar>
-        <ion-buttons slot="start"><ion-back-button [defaultHref]="auth.isAdmin() ? '/tabs/facilities' : '/tabs/history'" /></ion-buttons>
+        <ion-buttons slot="start"><ion-back-button [defaultHref]="auth.isAdmin() ? '/facilities-list' : '/tabs/history'" /></ion-buttons>
         <ion-title>{{ data()?.facility?.name || 'Facility' }}</ion-title>
         @if (auth.isAdmin() && data()) {
           <ion-buttons slot="end">

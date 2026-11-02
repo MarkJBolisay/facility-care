@@ -3,12 +3,15 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\ActivityLog;
+use App\Models\Equipment;
 use App\Models\Report;
 use App\Models\User;
 use App\Models\WorkOrder;
 use App\Models\WorkOrderMaterial;
 use App\Models\WorkOrderPhoto;
 use App\Services\Notifier;
+use App\Services\TechnicianMatcher;
 use App\Support\Uploads;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -24,7 +27,7 @@ class WorkOrderController extends Controller
     {
         $user = $request->user();
 
-        $query = WorkOrder::with(['facility.parent', 'assignee:id,name', 'report:id,reference,photo']);
+        $query = WorkOrder::with(['facility.parent', 'assignee:id,name', 'report:id,reference,photo', 'equipment:id,code,name']);
 
         if ($user->isMaintenance()) {
             $query->where('assigned_to', $user->id);
@@ -46,15 +49,27 @@ class WorkOrderController extends Controller
             $query->whereIn('status', WorkOrder::ACTIVE_STATUSES)->whereDate('due_date', '<', today());
         }
 
-        foreach (['status', 'priority', 'assigned_to', 'facility_id'] as $field) {
+        foreach (['status', 'priority', 'assigned_to', 'type', 'equipment_id', 'category'] as $field) {
             if ($request->filled($field)) {
                 $query->where($field, $request->input($field));
             }
         }
+        // Location: a building includes all its rooms
+        if ($request->filled('facility_id')) {
+            $query->whereIn('facility_id', EquipmentController::facilityAndChildren((int) $request->input('facility_id')));
+        }
+        // Date created
+        if ($request->filled('from')) {
+            $query->whereDate('created_at', '>=', $request->input('from'));
+        }
+        if ($request->filled('to')) {
+            $query->whereDate('created_at', '<=', $request->input('to'));
+        }
 
         if ($request->filled('search')) {
             $s = '%'.$request->input('search').'%';
-            $query->where(fn ($q) => $q->where('title', 'like', $s)->orWhere('reference', 'like', $s));
+            $query->where(fn ($q) => $q->where('title', 'like', $s)->orWhere('reference', 'like', $s)
+                ->orWhereHas('equipment', fn ($e) => $e->where('code', 'like', $s)->orWhere('name', 'like', $s)));
         }
 
         return $query->latest()->paginate($request->integer('per_page', 20));
@@ -66,6 +81,8 @@ class WorkOrderController extends Controller
         $data = $request->validate([
             'report_id' => 'nullable|exists:reports,id',
             'facility_id' => 'nullable|exists:facilities,id',
+            'equipment_id' => 'nullable|exists:equipment,id',
+            'type' => ['nullable', Rule::in(WorkOrder::TYPES)],
             'title' => 'required_without:report_id|nullable|string|max:255',
             'description' => 'nullable|string|max:5000',
             'category' => ['nullable', Rule::in(Report::CATEGORIES)],
@@ -94,6 +111,12 @@ class WorkOrderController extends Controller
             $data['facility_id'] = $data['facility_id'] ?? $report->facility_id;
             $data['category'] = $data['category'] ?? $report->category;
             $data['priority'] = $data['priority'] ?? $report->priority;
+            $data['equipment_id'] = $data['equipment_id'] ?? $report->equipment_id;
+        }
+
+        $data['type'] = $data['type'] ?? 'corrective';
+        if (! empty($data['equipment_id']) && empty($data['facility_id'])) {
+            $data['facility_id'] = Equipment::find($data['equipment_id'])?->facility_id;
         }
 
         $data['priority'] = $data['priority'] ?? 'medium';
@@ -116,8 +139,16 @@ class WorkOrderController extends Controller
                 ]);
             }
 
+            ActivityLog::record('work_order_created', "Work order {$wo->reference} created".
+                ($wo->due_date ? ', target date '.$wo->due_date->format('M j, Y') : '').'.', $request->user(), $report, $wo);
+
             return $wo;
         });
+
+        if ($wo->assigned_to) {
+            $wo->load('assignee');
+            ActivityLog::record('assigned', "Assigned to {$wo->assignee->name}.", $request->user(), $report, $wo, to: $wo->assignee->name);
+        }
 
         $this->notifyAssignment($wo, $request->user());
 
@@ -136,6 +167,8 @@ class WorkOrderController extends Controller
     {
         $data = $request->validate([
             'facility_id' => 'nullable|exists:facilities,id',
+            'equipment_id' => 'nullable|exists:equipment,id',
+            'type' => ['sometimes', Rule::in(WorkOrder::TYPES)],
             'title' => 'sometimes|string|max:255',
             'description' => 'nullable|string|max:5000',
             'category' => ['nullable', Rule::in(Report::CATEGORIES)],
@@ -144,6 +177,8 @@ class WorkOrderController extends Controller
             'due_date' => 'nullable|date',
             'status' => ['sometimes', Rule::in(WorkOrder::STATUSES)],
         ]);
+        $before = $workOrder->only(['status', 'assigned_to', 'due_date', 'priority']);
+        $oldAssignee = $workOrder->assignee?->name;
 
         $this->ensureMaintenance($data['assigned_to'] ?? null);
 
@@ -170,6 +205,26 @@ class WorkOrderController extends Controller
         }
 
         $workOrder->update($data);
+        $by = $request->user();
+
+        if ($reassigned) {
+            $workOrder->load('assignee');
+            ActivityLog::record('assigned', $workOrder->assignee ? "Reassigned to {$workOrder->assignee->name}." : 'Technician removed.',
+                $by, workOrder: $workOrder, from: $oldAssignee, to: $workOrder->assignee?->name);
+        }
+        if (isset($data['status']) && $data['status'] !== $before['status']) {
+            ActivityLog::record('status_changed', 'Status changed to '.EquipmentController::label($data['status']).'.',
+                $by, workOrder: $workOrder, from: $before['status'], to: $data['status']);
+            $this->syncEquipment($workOrder, $by);
+        }
+        if (array_key_exists('due_date', $data) && $workOrder->due_date?->toDateString() !== ($before['due_date'] ? $before['due_date']->toDateString() : null)) {
+            ActivityLog::record('due_date_changed', 'Target date set to '.($workOrder->due_date?->format('M j, Y') ?? 'none').'.',
+                $by, workOrder: $workOrder);
+        }
+        if (isset($data['priority']) && $data['priority'] !== $before['priority']) {
+            ActivityLog::record('priority_changed', 'Priority set to '.ucfirst($data['priority']).'.', $by, workOrder: $workOrder,
+                from: $before['priority'], to: $data['priority']);
+        }
 
         if (isset($data['status'])) {
             $this->syncReport($workOrder);
@@ -216,7 +271,9 @@ class WorkOrderController extends Controller
             'actions_taken' => 'required_if:status,completed|nullable|string|max:5000',
             'remarks' => 'nullable|string|max:5000',
             'completed_at' => 'nullable|date',
+            'condition_after' => ['nullable', Rule::in(Equipment::CONDITIONS)],
         ]);
+        $fromStatus = $workOrder->status;
 
         if ($workOrder->status === 'cancelled') {
             return response()->json(['message' => 'This work order was cancelled.'], 422);
@@ -232,6 +289,7 @@ class WorkOrderController extends Controller
             $updates['completed_at'] = $data['completed_at'] ?? now();
             $updates['actions_taken'] = $data['actions_taken'];
             $updates['remarks'] = $data['remarks'] ?? $workOrder->remarks;
+            $updates['condition_after'] = $workOrder->equipment_id ? ($data['condition_after'] ?? 'operational') : null;
         } else {
             $updates['started_at'] = null;
             $updates['completed_at'] = null;
@@ -239,6 +297,13 @@ class WorkOrderController extends Controller
 
         $workOrder->update($updates);
         $this->syncReport($workOrder);
+
+        if ($fromStatus !== $data['status']) {
+            $what = ['pending' => 'Moved back to Pending', 'in_progress' => 'Repair started', 'completed' => 'Repair completed'][$data['status']];
+            ActivityLog::record($data['status'] === 'completed' ? 'completed' : 'status_changed', "$what.",
+                $request->user(), workOrder: $workOrder, from: $fromStatus, to: $data['status']);
+        }
+        $this->syncEquipment($workOrder, $request->user());
 
         $label = ['pending' => 'Pending', 'in_progress' => 'In Progress', 'completed' => 'Completed'][$data['status']];
         $recipients = Notifier::admins();
@@ -313,19 +378,22 @@ class WorkOrderController extends Controller
         return response()->noContent();
     }
 
-    /** Maintenance personnel with their current workload, for the assignment picker. */
+    /**
+     * Technicians ranked for a job (smart assignment): specialization, availability and workload.
+     * Pass category, or equipment_id / report_id to work it out.
+     */
     public function personnel(Request $request)
     {
-        return User::where('role', 'maintenance')
-            ->where('is_active', true)
-            ->withCount([
-                'assignedWorkOrders as active_count' => fn ($q) => $q->whereIn('status', WorkOrder::ACTIVE_STATUSES),
-                'assignedWorkOrders as completed_count' => fn ($q) => $q->where('status', 'completed'),
-            ])
-            ->orderByDesc('is_available')
-            ->orderBy('active_count')
-            ->orderBy('name')
-            ->get();
+        $category = $request->input('category');
+        if (! $category && $request->filled('report_id')) {
+            $report = Report::with('equipment')->find($request->input('report_id'));
+            $category = $report?->category ?? $report?->equipment?->repairCategory();
+        }
+        if (! $category && $request->filled('equipment_id')) {
+            $category = Equipment::find($request->input('equipment_id'))?->repairCategory();
+        }
+
+        return TechnicianMatcher::rank($category ?: null);
     }
 
     // ----------------------------------------------------------------------
@@ -347,6 +415,41 @@ class WorkOrderController extends Controller
     {
         if ($userId && ! User::where('id', $userId)->where('role', 'maintenance')->exists()) {
             throw ValidationException::withMessages(['assigned_to' => 'Selected user is not maintenance personnel.']);
+        }
+    }
+
+    /**
+     * Keep the equipment's condition in step with its work order:
+     * started → Under Maintenance · completed → the condition chosen in the completion report (and record the service date).
+     */
+    private function syncEquipment(WorkOrder $wo, User $by): void
+    {
+        $equipment = $wo->equipment;
+        if (! $equipment) {
+            return;
+        }
+
+        $old = $equipment->condition;
+        $new = match ($wo->status) {
+            'in_progress' => 'under_maintenance',
+            'completed' => $wo->condition_after ?: 'operational',
+            'pending' => $wo->type === 'corrective' && $old === 'under_maintenance' ? 'needs_repair' : $old,
+            default => $old,
+        };
+
+        $updates = [];
+        if ($new !== $old) {
+            $updates['condition'] = $new;
+        }
+        if ($wo->status === 'completed') {
+            $updates['last_maintained_at'] = $wo->completed_at->toDateString();
+        }
+        if ($updates) {
+            $equipment->update($updates);
+        }
+        if ($new !== $old) {
+            ActivityLog::record('condition_changed', "{$equipment->code} is now ".EquipmentController::label($new).'.',
+                $by, workOrder: $wo, equipment: $equipment, from: $old, to: $new);
         }
     }
 
@@ -403,6 +506,8 @@ class WorkOrderController extends Controller
     {
         return $wo->load([
             'facility.parent',
+            'equipment.facility.parent',
+            'activities.user:id,name,role',
             'assignee:id,name,phone,specialization',
             'creator:id,name',
             'report.reporter:id,name,role,phone',

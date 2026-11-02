@@ -1,4 +1,3 @@
-import { NgTemplateOutlet } from '@angular/common';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
@@ -9,12 +8,12 @@ import { IONIC } from '../../shared/ionic';
 
 /**
  * Sign-in screen.
- * Phone: campus photo with the logo on top, the login card below, then the "Better campus" pitch.
- * Tablet / desktop (900px+): photo panel on the left, login card on the right.
+ * Phone: campus photo with the logo on top, the login card below.
+ * Tablet / desktop (900px+): campus photo panel on the left (with the blue and yellow waves), login card on the right.
  */
 @Component({
   selector: 'app-login',
-  imports: [...IONIC, FormsModule, RouterLink, NgTemplateOutlet],
+  imports: [...IONIC, FormsModule, RouterLink],
   template: `
     <ion-content class="auth lg">
       <div class="lg-wrap">
@@ -30,18 +29,20 @@ import { IONIC } from '../../shared/ionic';
                 <div class="lg-campus"><i></i>NEUST PAPAYA OFF-CAMPUS</div>
               </div>
             </div>
-            <div class="lg-pitch-wide">
-              <ng-container [ngTemplateOutlet]="pitch" />
-            </div>
           </div>
-          <svg class="lg-wave" viewBox="0 0 1000 120" preserveAspectRatio="none" aria-hidden="true">
-            <path d="M0,70 C220,20 420,120 640,70 C800,35 900,40 1000,60 L1000,120 L0,120 Z" fill="#f5c518" />
-            <path d="M0,84 C220,34 420,134 640,84 C800,49 900,54 1000,74 L1000,120 L0,120 Z" fill="#1557d6" />
-          </svg>
         </section>
 
         <!-- Login card -->
         <section class="lg-side">
+          <svg class="lg-swoosh lg-swoosh-top" viewBox="0 0 300 220" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M0,0 L300,0 C220,10 120,40 60,110 C30,145 12,185 0,220 Z" fill="#1d5fd8" />
+            <path d="M0,0 L190,0 C120,20 60,60 30,120 C18,145 8,170 0,195 Z" fill="#0b2a6f" opacity="0.9" />
+            <path d="M300,0 C220,10 120,40 60,110 C30,145 12,185 0,220 L0,236 C14,196 34,154 66,118 C128,48 226,16 300,8 Z" fill="#f5c518" />
+          </svg>
+          <svg class="lg-swoosh lg-swoosh-right" viewBox="0 0 120 600" preserveAspectRatio="none" aria-hidden="true">
+            <path d="M120,0 L120,600 L0,600 C60,520 90,420 100,300 C108,190 112,90 120,0 Z" fill="#1d5fd8" />
+            <path d="M120,40 C112,130 108,220 100,320 C92,430 66,520 18,600 L4,600 C54,518 82,428 90,320 C98,214 104,124 114,34 Z" fill="#f5c518" />
+          </svg>
           <div class="lg-card">
             <div class="lg-card-brand">
               <img class="lg-logo" src="assets/neust-logo.png" alt="" />
@@ -104,7 +105,7 @@ import { IONIC } from '../../shared/ionic';
                 @if (loading()) {
                   <ion-spinner name="crescent" />
                 } @else {
-                  Log In <ion-icon name="arrow-forward-outline" />
+                  <ion-icon name="log-in-outline" /> Log In
                 }
               </button>
             </form>
@@ -124,24 +125,9 @@ import { IONIC } from '../../shared/ionic';
             <p class="lg-foot">Don't have an account? <a routerLink="/register">Sign up here</a></p>
           </div>
 
-          <div class="lg-pitch-phone">
-            <ng-container [ngTemplateOutlet]="pitch" />
-          </div>
         </section>
       </div>
 
-      <ng-template #pitch>
-        <div class="lg-pitch">
-          <h2>A Better Campus <span>Starts with You!</span></h2>
-          <p>Report facility issues anytime, anywhere. Help us keep NEUST Papaya clean, safe, and well-maintained.</p>
-          <div class="lg-features">
-            <div class="lg-feature"><ion-icon name="document-text" /><span>Report Facility Issues</span></div>
-            <div class="lg-feature"><ion-icon name="settings" /><span>Track Maintenance</span></div>
-            <div class="lg-feature"><ion-icon name="people" /><span>Faster Response</span></div>
-            <div class="lg-feature"><ion-icon name="bar-chart" /><span>A Safer &amp; Better Campus</span></div>
-          </div>
-        </div>
-      </ng-template>
     </ion-content>
   `,
 })
@@ -152,7 +138,8 @@ export class LoginPage {
 
   email = this.auth.lastEmail;
   password = '';
-  remember = true;
+  // unchecked by default (like the design); stays checked if it was used last time
+  remember = !!this.auth.lastEmail;
   protected showPassword = signal(false);
   protected loading = signal(false);
   protected error = signal('');

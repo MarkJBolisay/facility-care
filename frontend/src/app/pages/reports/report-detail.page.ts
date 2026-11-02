@@ -2,9 +2,11 @@ import { DatePipe } from '@angular/common';
 import { Component, computed, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
+import { NavController } from '@ionic/angular';
 import { ApiService, errorMessage } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
-import { CATEGORIES, PRIORITIES, Report, WorkOrder } from '../../core/models';
+import { CATEGORIES, PRIORITIES, Report, WorkOrder, equipmentIcon, toneOf } from '../../core/models';
+import { ActivityComponent } from '../../shared/activity';
 import { UiService } from '../../core/ui.service';
 import { IONIC } from '../../shared/ionic';
 import { SHARED } from '../../shared/ui';
@@ -19,7 +21,7 @@ interface Step {
 
 @Component({
   selector: 'app-report-detail',
-  imports: [...IONIC, ...SHARED, FormsModule, RouterLink, DatePipe],
+  imports: [...IONIC, ...SHARED, FormsModule, RouterLink, DatePipe, ActivityComponent],
   template: `
     <ion-header>
       <ion-toolbar>
@@ -45,6 +47,7 @@ interface Step {
             <div class="pills">
               <app-badge kind="status" [value]="r.status" />
               <app-badge kind="priority" [value]="r.priority" />
+              @if (r.severity) { <app-badge kind="severity" [value]="r.severity" /> }
               <ion-badge color="light" class="pill">{{ r.category | label: 'category' }}</ion-badge>
             </div>
             <p class="pre-wrap">{{ r.description }}</p>
@@ -64,10 +67,67 @@ interface Step {
             }
           </div>
 
+          <!-- The equipment this request is about -->
+          @if (r.equipment; as e) {
+            <div class="section-title">Equipment</div>
+            @if (auth.isAdmin() || auth.isMaintenance()) {
+              <ion-list class="cards">
+                <ion-item button detail [routerLink]="['/equipment', e.id]">
+                  <div slot="start" class="eq-icon" [class]="'eq-icon tint-' + conditionTone(e.condition)"><ion-icon [name]="eqIcon(e.category)" /></div>
+                  <ion-label>
+                    <h3>{{ e.name }}</h3>
+                    <p>{{ e.code }}{{ e.model ? ' · ' + e.model : '' }}</p>
+                    <div class="pills">
+                      <app-badge kind="condition" [value]="e.condition" />
+                      <ion-badge color="light" class="pill">{{ e.importance | label: 'importance' }} importance</ion-badge>
+                    </div>
+                  </ion-label>
+                </ion-item>
+              </ion-list>
+            } @else {
+              <div class="panel">
+                <strong>{{ e.name }}</strong> <span class="muted small">({{ e.code }})</span>
+                <div class="pills"><app-badge kind="condition" [value]="e.condition" /></div>
+              </div>
+            }
+          }
+
           <!-- Administrator tools -->
           @if (auth.isAdmin()) {
+            <!-- Where this report is in the admin flow -->
+            <div class="flow-steps" aria-label="Report steps">
+              @for (s of adminSteps; track s; let i = $index) {
+                <div class="flow-step" [class.done]="i < adminStep()" [class.now]="i === adminStep()">
+                  <i>{{ i < adminStep() ? '✓' : i + 1 }}</i><span>{{ s }}</span>
+                </div>
+              }
+            </div>
+
             <div class="section-title">Review &amp; classification</div>
             <div class="panel">
+              <!-- Automated prioritization: recommended level from importance, severity and waiting time -->
+              @if (r.priority_assessment; as pa) {
+                <div class="prio-rec">
+                  <div class="prio-rec-head">
+                    <ion-icon name="sparkles" />
+                    <div>
+                      <span>Recommended priority</span>
+                      <strong>{{ pa.recommended | label: 'priority' }} <em>· score {{ pa.score }}/100</em></strong>
+                    </div>
+                    @if (priority !== pa.recommended) {
+                      <ion-button size="small" (click)="priority = pa.recommended">Use</ion-button>
+                    } @else {
+                      <ion-badge color="success" class="pill">Applied</ion-badge>
+                    }
+                  </div>
+                  @for (f of pa.factors; track f.label) {
+                    <div class="prio-factor">
+                      <div class="prio-factor-head"><span>{{ f.label }}: <strong>{{ f.value }}</strong></span><span>{{ f.points }}/{{ f.max }}</span></div>
+                      <div class="bar-track"><div class="bar-fill" [style.width.%]="(f.points / f.max) * 100"></div></div>
+                    </div>
+                  }
+                </div>
+              }
               <ion-list lines="full">
                 <ion-item>
                   <ion-select label="Category" interface="action-sheet" placeholder="Uncategorized" [(ngModel)]="category">
@@ -88,21 +148,29 @@ interface Step {
                 Low – cosmetic / can wait · Medium – affects comfort · High – disrupts classes · Critical – safety hazard, fix now
               </p>
               @if (r.status === 'pending' || r.status === 'rejected') {
-                <ion-button expand="block" color="success" (click)="approve()">
-                  <ion-icon slot="start" name="checkmark-circle-outline" /> Approve
+                <ion-button expand="block" (click)="approve(true)">
+                  <ion-icon slot="start" name="person-add-outline" /> Approve &amp; assign personnel
+                </ion-button>
+                <ion-button expand="block" fill="outline" color="success" (click)="approve(false)">
+                  <ion-icon slot="start" name="checkmark-circle-outline" /> Approve only
                 </ion-button>
               } @else {
                 <ion-button expand="block" fill="outline" (click)="saveClassification()">Save changes</ion-button>
               }
-              @if (r.status === 'pending' || r.status === 'approved') {
+              @if (r.status === 'pending' || (r.status === 'approved' && !activeWo())) {
                 <ion-button expand="block" fill="clear" color="danger" (click)="reject()">
                   <ion-icon slot="start" name="close-circle-outline" /> Reject
                 </ion-button>
               }
             </div>
 
-            <div class="section-title">Maintenance assignment</div>
-            @if (activeWo(); as wo) {
+            <!-- Assignment shows once the report is approved (step 2) -->
+            @if (r.status !== 'pending') {
+              <div class="section-title">Maintenance assignment</div>
+            }
+            @if (r.status === 'pending') {
+              <!-- assigning happens through "Approve & assign" above -->
+            } @else if (activeWo(); as wo) {
               <ion-list class="cards">
                 <ion-item button detail [routerLink]="['/work-orders', wo.id]">
                   <ion-icon slot="start" name="hammer-outline" />
@@ -149,6 +217,22 @@ interface Step {
               </ion-item>
             }
           </ion-list>
+
+          @if (auth.isAdmin() && r.activities?.length) {
+            <div class="section-title">Activity history</div>
+            <div class="panel"><app-activity [items]="r.activities" /></div>
+          }
+
+          <!-- Reporter: after the repair, report again if it is still broken -->
+          @if (!auth.isAdmin() && r.user_id === auth.user()?.id && (r.status === 'completed' || r.status === 'rejected')) {
+            <div class="panel ion-text-center">
+              <p class="mt-0"><strong>{{ r.status === 'completed' ? 'Still not fixed?' : 'Still a problem?' }}</strong></p>
+              <p class="small muted">Send a follow-up report. The details of this report will be filled in for you.</p>
+              <ion-button expand="block" fill="outline" routerLink="/tabs/new-report" [queryParams]="{ followUp: r.id }">
+                <ion-icon slot="start" name="refresh-outline" /> Report it again
+              </ion-button>
+            </div>
+          }
         </div>
       } @else if (loadError()) {
         <app-empty [text]="loadError()" icon="alert-circle-outline" />
@@ -162,16 +246,32 @@ export class ReportDetailPage {
   private api = inject(ApiService);
   private ui = inject(UiService);
   private router = inject(Router);
+  private nav = inject(NavController);
   protected auth = inject(AuthService);
 
   readonly id = input.required<string>();
   protected loadError = signal('');
 
+  protected eqIcon = equipmentIcon;
+  protected conditionTone(c: string): string {
+    return toneOf('condition', c);
+  }
   protected categories = CATEGORIES;
   protected priorities = PRIORITIES;
   protected report = signal<Report | null>(null);
   category: string | null = null;
   priority: string | null = null;
+
+  protected readonly adminSteps = ['Review', 'Assign', 'Repair', 'Done'];
+  /** 0 review · 1 assign · 2 repair · 3 done */
+  protected adminStep = computed(() => {
+    const r = this.report();
+    const wo = this.activeWo();
+    if (!r || r.status === 'pending' || r.status === 'rejected') return 0;
+    if (r.status === 'completed') return 4;
+    if (!wo || !wo.assigned_to) return 1;
+    return 2;
+  });
 
   protected activeWo = computed<WorkOrder | null>(
     () => this.report()?.work_orders?.find((w) => w.status !== 'cancelled') ?? null,
@@ -217,7 +317,8 @@ export class ReportDetailPage {
     }
   }
 
-  async approve(): Promise<void> {
+  /** Approve the report; with andAssign, go straight to choosing the maintenance person. */
+  async approve(andAssign = false): Promise<void> {
     if (!this.priority) {
       await this.ui.toast('Set a priority before approving.', 'warning');
       return;
@@ -225,19 +326,25 @@ export class ReportDetailPage {
     const r = await this.ui.busy(() =>
       this.api.post<Report>(`reports/${this.id()}/approve`, { category: this.category, priority: this.priority }),
     );
-    if (r) {
-      this.report.set(r);
-      await this.ui.toast('Report approved. You can now assign personnel.', 'success');
+    if (!r) return;
+    this.report.set(r);
+    if (andAssign) {
+      await this.ui.toast('Report approved. Now choose who will fix it.', 'success');
+      await this.assign();
+    } else {
+      await this.ui.toast('Report approved. Assign personnel when ready.', 'success');
     }
   }
 
+  /** Reject, then return to the list so the next report can be reviewed. */
   async reject(): Promise<void> {
     const reason = await this.ui.prompt('Reject report', 'Reason (the reporter will see this)', 'Reject');
     if (reason === null) return;
     const r = await this.ui.busy(() => this.api.post<Report>(`reports/${this.id()}/reject`, { admin_remarks: reason }));
     if (r) {
       this.report.set(r);
-      await this.ui.toast('Report rejected.');
+      await this.ui.toast('Report rejected. The reporter has been notified.');
+      await this.nav.navigateBack('/tabs/reports');
     }
   }
 

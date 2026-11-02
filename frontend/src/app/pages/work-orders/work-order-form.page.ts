@@ -1,8 +1,9 @@
 import { Component, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
+import { IonRouterOutlet, NavController } from '@ionic/angular';
 import { ApiService } from '../../core/api.service';
-import { CATEGORIES, Facility, PRIORITIES, Report, User, WorkOrder } from '../../core/models';
+import { CATEGORIES, Equipment, Facility, PRIORITIES, Report, User, WORK_ORDER_TYPES, WorkOrder } from '../../core/models';
 import { UiService } from '../../core/ui.service';
 import { IONIC } from '../../shared/ionic';
 import { SHARED } from '../../shared/ui';
@@ -18,7 +19,7 @@ import { SHARED } from '../../shared/ui';
     <ion-header>
       <ion-toolbar>
         <ion-buttons slot="start"><ion-back-button defaultHref="/tabs/work-orders" /></ion-buttons>
-        <ion-title>{{ id() ? 'Edit Work Order' : report() ? 'Assign Maintenance' : 'New Work Order' }}</ion-title>
+        <ion-title>{{ id() ? 'Edit Work Order' : report() ? 'Assign Technician' : 'New Work Order' }}</ion-title>
       </ion-toolbar>
     </ion-header>
 
@@ -27,9 +28,9 @@ import { SHARED } from '../../shared/ui';
         <form class="max" (ngSubmit)="save()">
           @if (report(); as r) {
             <div class="panel">
-              <p class="small muted mt-0">For report {{ r.reference }}</p>
+              <p class="small muted mt-0">For request {{ r.reference }}</p>
               <strong>{{ r.title }}</strong>
-              <p class="small">{{ r.facility?.full_name }}</p>
+              <p class="small mb-0">{{ r.facility?.full_name }}{{ r.equipment ? ' · ' + r.equipment.name + ' (' + r.equipment.code + ')' : '' }}</p>
             </div>
           }
 
@@ -42,14 +43,31 @@ import { SHARED } from '../../shared/ui';
                 <ion-textarea label="Instructions / description" labelPlacement="stacked" name="description" [autoGrow]="true" rows="3" [(ngModel)]="form.description" />
               </ion-item>
               <ion-item>
-                <ion-select label="Facility" labelPlacement="stacked" name="facility" interface="action-sheet" placeholder="Select facility" [(ngModel)]="form.facility_id">
+                <ion-select label="Location" labelPlacement="stacked" name="facility" interface="action-sheet" placeholder="Select location" [ngModel]="form.facility_id" (ngModelChange)="pickFacility($event)">
                   @for (f of facilities(); track f.id) {
                     <ion-select-option [value]="f.id">{{ f.full_name }}</ion-select-option>
                   }
                 </ion-select>
               </ion-item>
+              @if (equipmentList().length) {
+                <ion-item>
+                  <ion-select label="Equipment" labelPlacement="stacked" name="equipment" interface="action-sheet" placeholder="Not a specific equipment" [(ngModel)]="form.equipment_id">
+                    <ion-select-option [value]="null">Not a specific equipment</ion-select-option>
+                    @for (e of equipmentList(); track e.id) {
+                      <ion-select-option [value]="e.id">{{ e.name }} ({{ e.code }})</ion-select-option>
+                    }
+                  </ion-select>
+                </ion-item>
+              }
               <ion-item>
-                <ion-select label="Category" labelPlacement="stacked" name="category" interface="action-sheet" [(ngModel)]="form.category">
+                <ion-select label="Type" labelPlacement="stacked" name="type" interface="popover" [(ngModel)]="form.type">
+                  @for (t of types; track t.value) {
+                    <ion-select-option [value]="t.value">{{ t.value === 'corrective' ? 'Repair (corrective)' : 'Preventive maintenance' }}</ion-select-option>
+                  }
+                </ion-select>
+              </ion-item>
+              <ion-item>
+                <ion-select label="Category" labelPlacement="stacked" name="category" interface="action-sheet" [ngModel]="form.category" (ngModelChange)="pickCategory($event)">
                   @for (c of categories; track c.value) {
                     <ion-select-option [value]="c.value">{{ c.label }}</ion-select-option>
                   }
@@ -78,8 +96,10 @@ import { SHARED } from '../../shared/ui';
             </ion-list>
           </div>
 
-          <div class="section-title">Assign to</div>
-          <p class="small muted">Sorted by availability and current workload.</p>
+          <div class="section-title">Assign technician</div>
+          <p class="small muted">
+            Ranked by specialization match, availability and current workload. The top match is recommended.
+          </p>
           <ion-list class="cards">
             <ion-item button (click)="form.assigned_to = null" [class.selected]="form.assigned_to === null">
               <ion-icon slot="start" name="person-outline" color="medium" />
@@ -90,17 +110,18 @@ import { SHARED } from '../../shared/ui';
             </ion-item>
             @for (p of personnel(); track p.id) {
               <ion-item button (click)="form.assigned_to = p.id" [class.selected]="form.assigned_to === p.id">
-                <ion-icon slot="start" name="construct-outline" [color]="p.is_available ? 'success' : 'medium'" />
-                <ion-label>
-                  <h3>{{ p.name }}</h3>
-                  <p>
-                    {{ p.specialization | label: 'category' }} ·
-                    <span [style.color]="p.is_available ? 'var(--ion-color-success)' : 'var(--ion-color-medium)'">
-                      {{ p.is_available ? 'Available' : 'Unavailable' }}
-                    </span>
-                    @if (p.specialization && p.specialization === form.category) { · ⭐ matches category }
+                <div slot="start" class="match-score" [class.top]="p.is_recommended">{{ p.match_score }}<small>match</small></div>
+                <ion-label class="ion-text-wrap">
+                  <h3>
+                    {{ p.name }}
+                    @if (p.is_recommended) { <span class="rec-badge"><ion-icon name="sparkles" /> Recommended</span> }
+                  </h3>
+                  <p>{{ p.specialization | label: 'category' }} · {{ p.completed_count }} completed</p>
+                  <p class="match-reasons">
+                    @for (reason of p.match_reasons; track reason) {
+                      <span [class.bad]="reason.includes('overdue') || reason.startsWith('Not ')">{{ reason }}</span>
+                    }
                   </p>
-                  <p>{{ p.active_count }} active task(s) · {{ p.completed_count }} completed</p>
                 </ion-label>
                 @if (form.assigned_to === p.id) {
                   <ion-icon slot="end" name="checkmark-circle-outline" color="primary" />
@@ -118,18 +139,39 @@ import { SHARED } from '../../shared/ui';
       }
     </ion-content>
   `,
-  styles: [`ion-item.selected { border-color: var(--ion-color-primary) !important; }`],
+  styles: [
+    `
+      ion-item.selected { border-color: var(--ion-color-primary) !important; box-shadow: 0 0 0 2px rgba(var(--ion-color-primary-rgb), 0.15); }
+      .match-score {
+        display: grid; place-items: center; width: 48px; height: 48px; margin-right: 12px; border-radius: 14px; flex-shrink: 0;
+        background: var(--fc-page); font-weight: 800; font-size: 1.05rem; line-height: 1; color: var(--fc-muted);
+      }
+      .match-score small { display: block; font-size: 0.55rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; }
+      .match-score.top { background: rgba(var(--ion-color-success-rgb), 0.15); color: var(--ion-color-success-shade); }
+      .rec-badge {
+        display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; padding: 1px 8px; border-radius: 999px; vertical-align: 2px;
+        background: rgba(var(--ion-color-success-rgb), 0.15); color: var(--ion-color-success-shade); font-size: 0.68rem; font-weight: 700;
+      }
+      .match-reasons { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px !important; }
+      .match-reasons span { padding: 1px 7px; border-radius: 999px; background: var(--fc-page); font-size: 0.7rem; }
+      .match-reasons span.bad { color: var(--ion-color-danger); }
+    `,
+  ],
 })
 export class WorkOrderFormPage {
   private api = inject(ApiService);
   private ui = inject(UiService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
+  private nav = inject(NavController);
+  private outlet = inject(IonRouterOutlet, { optional: true });
 
   readonly id = input<string>();
 
   protected categories = CATEGORIES;
   protected priorities = PRIORITIES;
+  protected types = WORK_ORDER_TYPES;
+  protected equipmentList = signal<Equipment[]>([]);
   protected facilities = signal<Facility[]>([]);
   protected personnel = signal<User[]>([]);
   protected report = signal<Report | null>(null);
@@ -146,6 +188,8 @@ export class WorkOrderFormPage {
     assigned_to: null as number | null,
     status: 'pending',
     report_id: null as number | null,
+    equipment_id: null as number | null,
+    type: 'corrective' as 'corrective' | 'preventive',
   };
 
   async ionViewWillEnter(): Promise<void> {
@@ -155,7 +199,7 @@ export class WorkOrderFormPage {
       const reportId = qp.get('reportId');
       const [facilities, personnel, wo, report] = await Promise.all([
         this.api.get<Facility[]>('facilities'),
-        this.api.get<User[]>('personnel'),
+        this.api.get<User[]>('personnel', { category: qp.get('category') ?? '', report_id: reportId ?? '' }),
         this.id() ? this.api.get<WorkOrder>(`work-orders/${this.id()}`) : Promise.resolve(null),
         reportId ? this.api.get<Report>(`reports/${reportId}`) : Promise.resolve(null),
       ]);
@@ -173,7 +217,11 @@ export class WorkOrderFormPage {
           assigned_to: wo.assigned_to,
           status: wo.status,
           report_id: wo.report_id,
+          equipment_id: wo.equipment_id,
+          type: wo.type,
         });
+        void this.loadEquipment(wo.facility_id);
+        void this.rank();
       } else if (report) {
         this.report.set(report);
         Object.assign(this.form, {
@@ -183,16 +231,38 @@ export class WorkOrderFormPage {
           category: qp.get('category') || report.category,
           priority: qp.get('priority') || report.priority || 'medium',
           report_id: report.id,
+          equipment_id: report.equipment_id,
         });
-        // Suggest the best match: available, right specialization, least busy.
-        const best = personnel.find((p) => p.is_available && p.specialization === this.form.category)
-          ?? personnel.find((p) => p.is_available);
-        this.form.assigned_to = best?.id ?? null;
+        void this.loadEquipment(report.facility_id);
+        // Smart assignment: preselect the recommended technician
+        this.form.assigned_to = (personnel.find((p) => p.is_recommended) ?? personnel.find((p) => p.is_available))?.id ?? null;
       }
       this.ready.set(true);
     } catch (err) {
       await this.ui.error(err);
     }
+  }
+
+  /** Equipment in the chosen location, for the Equipment field. */
+  private async loadEquipment(facilityId: number | null): Promise<void> {
+    this.equipmentList.set(facilityId ? await this.api.get<Equipment[]>('equipment', { facility_id: facilityId }).catch(() => []) : []);
+  }
+
+  pickFacility(id: number | null): void {
+    this.form.facility_id = id;
+    this.form.equipment_id = null;
+    void this.loadEquipment(id);
+  }
+
+  /** Re-rank technicians when the category changes. */
+  pickCategory(category: string | null): void {
+    this.form.category = category;
+    void this.rank();
+  }
+
+  private async rank(): Promise<void> {
+    const list = await this.api.get<User[]>('personnel', { category: this.form.category ?? '' }).catch(() => null);
+    if (list) this.personnel.set(list);
   }
 
   async save(): Promise<void> {
@@ -206,6 +276,13 @@ export class WorkOrderFormPage {
       const wo = this.id()
         ? await this.api.put<WorkOrder>(`work-orders/${this.id()}`, body)
         : await this.api.post<WorkOrder>('work-orders', body);
+      // Assigned from a report: go back to where the admin came from (the report or the dashboard queue)
+      if (!this.id() && this.form.report_id && this.outlet?.canGoBack()) {
+        const who = this.personnel().find((p) => p.id === wo.assigned_to)?.name;
+        await this.ui.toast(who ? `${wo.reference} assigned to ${who}. They have been notified.` : `Work order ${wo.reference} created.`, 'success');
+        await this.nav.pop();
+        return;
+      }
       await this.ui.toast(this.id() ? 'Work order updated.' : `Work order ${wo.reference} created.`, 'success');
       await this.router.navigate(['/work-orders', wo.id], { replaceUrl: true });
     } catch (err) {

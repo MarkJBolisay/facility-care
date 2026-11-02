@@ -18,8 +18,11 @@ class Report extends Model
 
     public const STATUSES = ['pending', 'approved', 'rejected', 'in_progress', 'completed'];
 
+    /** How bad the problem is, chosen by the requester. */
+    public const SEVERITIES = ['minor', 'moderate', 'severe'];
+
     protected $fillable = [
-        'reference', 'user_id', 'facility_id', 'location_details', 'title', 'description',
+        'reference', 'user_id', 'facility_id', 'equipment_id', 'severity', 'location_details', 'title', 'description',
         'category', 'priority', 'status', 'photo', 'admin_remarks', 'reviewed_by', 'reviewed_at',
     ];
 
@@ -63,6 +66,16 @@ class Report extends Model
     public function facility(): BelongsTo
     {
         return $this->belongsTo(Facility::class);
+    }
+
+    public function equipment(): BelongsTo
+    {
+        return $this->belongsTo(Equipment::class);
+    }
+
+    public function activities(): HasMany
+    {
+        return $this->hasMany(ActivityLog::class)->latest('created_at')->latest('id');
     }
 
     public function reviewer(): BelongsTo

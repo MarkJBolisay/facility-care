@@ -13,6 +13,7 @@ const ICONS: Record<string, string> = {
   assignment: 'hammer-outline',
   status: 'refresh-outline',
   announcement: 'megaphone-outline',
+  reminder: 'alarm-outline',
   info: 'notifications-outline',
 };
 

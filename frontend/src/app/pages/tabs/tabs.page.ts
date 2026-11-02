@@ -15,13 +15,13 @@ import { NotificationService } from '../../core/notification.service';
             <ion-icon name="grid-outline" /><ion-label>Dashboard</ion-label>
           </ion-tab-button>
           <ion-tab-button tab="reports">
-            <ion-icon name="document-text-outline" /><ion-label>Reports</ion-label>
+            <ion-icon name="document-text-outline" /><ion-label>Requests</ion-label>
           </ion-tab-button>
           <ion-tab-button tab="work-orders">
             <ion-icon name="hammer-outline" /><ion-label>Work Orders</ion-label>
           </ion-tab-button>
-          <ion-tab-button tab="facilities">
-            <ion-icon name="business-outline" /><ion-label>Facilities</ion-label>
+          <ion-tab-button tab="equipment">
+            <ion-icon name="desktop-outline" /><ion-label>Equipment</ion-label>
           </ion-tab-button>
           <ion-tab-button tab="more">
             <ion-icon name="ellipsis-horizontal-outline" /><ion-label>More</ion-label>

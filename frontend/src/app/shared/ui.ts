@@ -34,7 +34,7 @@ export class AgoPipe implements PipeTransform {
   template: `<ion-badge [color]="tone()" class="pill">{{ text() }}</ion-badge>`,
 })
 export class BadgeComponent {
-  readonly kind = input.required<'status' | 'priority'>();
+  readonly kind = input.required<'status' | 'priority' | 'condition' | 'maintenance' | 'severity'>();
   readonly value = input<string | null | undefined>();
   protected tone = computed(() => toneOf(this.kind(), this.value()));
   protected text = computed(() => labelOf(this.kind(), this.value()));

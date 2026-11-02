@@ -38,51 +38,67 @@ ion-content.dash {
 .dash a { text-decoration: none; color: inherit; }
 .dash button { font-family: inherit; }
 
-/* ---------- Blue header ---------- */
+/* ---------- Header (same look as the login: campus photo, navy-blue overlay, yellow wave) ---------- */
 .dash-hero {
   position: relative;
   overflow: hidden;
   color: #fff;
-  padding: calc(18px + var(--ion-safe-area-top, 0px)) 20px 64px;
-  background: linear-gradient(160deg, #2a6cf0 0%, var(--dash-blue) 55%, #1a4fc4 100%);
+  padding: calc(14px + var(--ion-safe-area-top, 0px)) 18px 78px;
+  background: #0b2a6f;
 }
-.dash-hero::before,
-.dash-hero::after {
+.dash-hero-photo {
+  position: absolute;
+  inset: 0;
+  background: url('/assets/campus-bg.jpg') 75% 45% / cover no-repeat;
+}
+.dash-hero-photo::after {
   content: '';
   position: absolute;
-  border-radius: 50%;
-  pointer-events: none;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  inset: 0;
+  background:
+    radial-gradient(ellipse 70% 60% at 100% 0%, rgba(245, 197, 24, 0.16) 0%, rgba(245, 197, 24, 0) 70%),
+    linear-gradient(160deg, rgba(8, 30, 86, 0.95) 0%, rgba(11, 42, 111, 0.9) 45%, rgba(21, 101, 240, 0.82) 100%);
 }
-.dash-hero::before { width: 280px; height: 280px; top: -140px; right: -90px; background: rgba(255, 255, 255, 0.05); }
-.dash-hero::after { width: 180px; height: 180px; bottom: -90px; left: -60px; background: rgba(255, 255, 255, 0.04); }
-.dash-hero > * { position: relative; }
-.dash-hero-inner { max-width: 720px; margin: 0 auto; }
+.dash-hero-inner { position: relative; z-index: 1; max-width: 720px; margin: 0 auto; }
+.dash-wave { position: absolute; left: 0; right: 0; bottom: -1px; z-index: 1; width: 100%; height: 46px; }
+.dash-wave-fill { fill: var(--fc-page); }
 
-.dash-hero-top { display: flex; align-items: center; gap: 12px; }
+/* Top bar: logo + name, bell, avatar */
+.dash-topbar { display: flex; align-items: center; gap: 10px; }
+.dash-brand { flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px; }
+.dash-brand img { width: 44px; height: 44px; padding: 2px; object-fit: contain; flex-shrink: 0; border-radius: 50%; background: #fff; box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.25), 0 4px 10px rgba(0, 0, 0, 0.3); }
+.dash-wordmark { font-size: 1.15rem; font-weight: 800; letter-spacing: -0.02em; line-height: 1.05; white-space: nowrap; }
+.dash-wordmark span:last-child { color: #8fbcff; }
+.dash-campus { margin-top: 2px; font-size: 0.55rem; font-weight: 800; letter-spacing: 0.2em; color: #f5c518; white-space: nowrap; }
+.dash .dash-bell,
 .dash .dash-avatar {
-  display: grid; place-items: center; width: 44px; height: 44px; flex-shrink: 0; border-radius: 50%;
-  background: rgba(255, 255, 255, 0.18); border: 1px solid rgba(255, 255, 255, 0.35);
-  font-weight: 800; font-size: 0.95rem; color: #fff;
+  position: relative; display: grid; place-items: center; width: 40px; height: 40px; flex-shrink: 0;
+  color: #fff; background: rgba(255, 255, 255, 0.14); border: 1px solid rgba(255, 255, 255, 0.22);
 }
-.dash-hello { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
-.dash-hello span { font-size: 0.8rem; opacity: 0.85; }
-.dash-hello strong { font-size: 1.2rem; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.dash .dash-bell {
-  position: relative; display: grid; place-items: center; width: 42px; height: 42px; flex-shrink: 0;
-  border-radius: 12px; background: rgba(255, 255, 255, 0.16); color: #fff;
-}
-.dash-bell ion-icon { font-size: 22px; }
+.dash .dash-bell { border-radius: 12px; }
+.dash .dash-avatar { border-radius: 50%; font-weight: 800; font-size: 0.85rem; }
+.dash-bell ion-icon { font-size: 21px; }
 .dash-bell-badge {
-  position: absolute; top: -5px; right: -5px; min-width: 20px; height: 20px; padding: 0 5px;
-  display: grid; place-items: center; border-radius: 999px; border: 2px solid var(--dash-blue);
-  background: #ef4444; color: #fff; font-size: 0.65rem; font-weight: 800; line-height: 1;
+  position: absolute; top: -6px; right: -6px; min-width: 20px; height: 20px; padding: 0 5px;
+  display: grid; place-items: center; border-radius: 999px; border: 2px solid #0b2a6f;
+  background: #ef4444; color: #fff; font-size: 0.62rem; font-weight: 800; line-height: 1;
 }
-.dash-sub { margin: 14px 0 0; font-size: 0.85rem; opacity: 0.92; }
-.dash-hero h1 { margin: 16px 0 0; font-size: 1.45rem; font-weight: 800; letter-spacing: -0.01em; line-height: 1.25; }
+
+/* Greeting */
+.dash-hello { display: flex; flex-direction: column; margin-top: 22px; line-height: 1.15; }
+.dash-hello span { font-size: 0.9rem; opacity: 0.85; }
+.dash-hello strong { font-size: 1.75rem; font-weight: 800; letter-spacing: -0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dash-chip {
+  display: inline-flex; align-items: center; gap: 8px; margin-top: 10px; padding: 5px 12px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12); border: 1px solid rgba(255, 255, 255, 0.18);
+  font-size: 0.75rem; font-weight: 600;
+}
+.dash-chip i { width: 8px; height: 8px; border-radius: 50%; background: #f5c518; }
+.dash-hero h1 { margin: 14px 0 0; font-size: 1.3rem; font-weight: 800; letter-spacing: -0.01em; line-height: 1.25; }
+.dash-hero h1 em { font-style: normal; color: #f5c518; }
 
 /* ---------- Content that overlaps the header ---------- */
-.dash-body { position: relative; z-index: 1; max-width: 720px; margin: -44px auto 0; padding: 0 16px 28px; }
+.dash-body { position: relative; z-index: 1; max-width: 720px; margin: -30px auto 0; padding: 0 16px 28px; }
 .dash-card {
   background: var(--dash-card);
   border-radius: 18px;
@@ -98,7 +114,7 @@ ion-content.dash {
 }
 .dash .dash-metric:last-child { border-right: 0; }
 .dash-metric strong { font-size: 1.5rem; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.2; }
-.dash-metric span { font-size: 0.7rem; font-weight: 600; color: var(--fc-muted); line-height: 1.2; }
+.dash-metric > span:last-child { font-size: 0.7rem; font-weight: 600; color: var(--fc-muted); line-height: 1.2; }
 @each $c in warning, primary, success, danger, tertiary {
   .dash-metric.#{$c} strong { color: var(--c-#{$c}); }
 }
@@ -289,4 +305,64 @@ ion-tab-button ion-label { font-size: 0.68rem; max-width: 100%; overflow: hidden
 }
 @media (prefers-color-scheme: dark) {
   ion-tab-button { --color-selected: #7aa5ff; }
+}
+
+/* ---------- Flow helpers ---------- */
+.dash button.dash-tile { font: inherit; text-align: left; color: inherit; cursor: pointer; }
+.dash .dash-mini-btn { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; }
+.dash-progress { margin-top: 12px; }
+.dash-progress-bar { height: 6px; border-radius: 999px; background: var(--dash-soft); overflow: hidden; }
+.dash-progress-bar div { height: 100%; min-width: 6px; border-radius: 999px; background: var(--ion-color-success); }
+.dash-progress span { display: block; margin-top: 6px; font-size: 0.78rem; color: var(--fc-muted); }
+.dash-progress strong { color: var(--dash-ink); }
+
+/* ==========================================================================
+   Brand polish (matches the login screen)
+   ========================================================================== */
+:root { --brand-navy: #0b2a6f; --brand-blue: #1565f0; --brand-yellow: #f5c518; }
+
+/* Section titles get a short yellow bar, like "— NEUST PAPAYA OFF-CAMPUS" on the login */
+.dash-section h2 { display: flex; align-items: center; gap: 8px; }
+.dash-section h2::before { content: ''; width: 4px; height: 16px; border-radius: 2px; background: var(--brand-yellow); }
+
+/* Summary card */
+.dash-summary { padding: 16px 4px 14px; }
+.dash-metric-icon { display: grid; place-items: center; width: 34px; height: 34px; margin-bottom: 4px; border-radius: 11px; font-size: 18px; }
+.dash-card { border-radius: 20px; }
+
+/* Student "Report an issue" button: solid brand blue, the main action */
+.dash .dash-cta {
+  background: linear-gradient(135deg, #1565f0 0%, #0b2a6f 100%);
+  border: 0; color: #fff; box-shadow: 0 12px 28px rgba(21, 101, 240, 0.32);
+}
+.dash .dash-cta .dash-cta-icon { background: #fff; color: var(--brand-blue); box-shadow: none; }
+.dash .dash-cta .dash-cta-text span { color: rgba(255, 255, 255, 0.82); }
+.dash .dash-cta > ion-icon { color: var(--brand-yellow); font-size: 22px; }
+
+
+/* Mini buttons in brand blue */
+.dash .dash-mini-btn { background: rgba(21, 101, 240, 0.1); color: var(--brand-blue); }
+@media (prefers-color-scheme: dark) { .dash .dash-mini-btn { background: rgba(122, 165, 255, 0.14); color: #7aa5ff; } }
+.dash .dash-btn { background: var(--brand-blue); box-shadow: 0 8px 18px rgba(21, 101, 240, 0.28); }
+
+/* Tab bar: the active tab's icon sits in a soft pill */
+ion-tab-button ion-icon { box-sizing: content-box; padding: 3px 14px; border-radius: 999px; transition: background 0.2s; }
+ion-tab-button.tab-selected ion-icon { background: rgba(21, 101, 240, 0.12); }
+ion-tab-button { --color-selected: var(--brand-blue); }
+@media (prefers-color-scheme: dark) {
+  ion-tab-button.tab-selected ion-icon { background: rgba(122, 165, 255, 0.16); }
+  ion-tab-button { --color-selected: #7aa5ff; }
+}
+@media (max-width: 360px) {
+  ion-tab-button ion-icon { padding: 2px 8px; }
+  .dash-hello strong { font-size: 1.5rem; }
+  .dash-campus { letter-spacing: 0.14em; }
+}
+.dash-brand > div { min-width: 0; }
+.dash-campus { overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 360px) {
+  .dash-campus { font-size: 0.5rem; letter-spacing: 0.08em; }
+  .dash-wordmark { font-size: 1.05rem; }
+  .dash-brand img { width: 38px; height: 38px; }
+  .dash .dash-bell, .dash .dash-avatar { width: 36px; height: 36px; }
 }

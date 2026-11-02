@@ -13,7 +13,59 @@ export interface User {
   is_available: boolean;
   active_count?: number;
   completed_count?: number;
+  overdue_count?: number;
+  completed_month_count?: number;
+  in_progress_count?: number;
+  /** Smart assignment (from GET personnel) */
+  match_score?: number;
+  match_reasons?: string[];
+  is_recommended?: boolean;
   created_at?: string;
+}
+
+export interface Equipment {
+  id: number;
+  code: string;
+  name: string;
+  category: string;
+  model: string | null;
+  serial_number: string | null;
+  department: string | null;
+  facility_id: number | null;
+  facility?: Facility | null;
+  acquisition_date: string | null;
+  condition: string;
+  importance: string;
+  maintenance_interval_days: number | null;
+  last_maintained_at: string | null;
+  next_maintenance_due: string | null;
+  maintenance_state: 'none' | 'scheduled' | 'due_soon' | 'overdue';
+  notes: string | null;
+  open_requests_count?: number;
+  open_work_order?: WorkOrder | null;
+  created_at: string;
+}
+
+export interface ActivityLog {
+  id: number;
+  action: string;
+  description: string;
+  from_value: string | null;
+  to_value: string | null;
+  user?: { id: number; name: string; role: string } | null;
+  report_id: number | null;
+  work_order_id: number | null;
+  equipment_id: number | null;
+  report?: { id: number; reference: string; title: string } | null;
+  work_order?: { id: number; reference: string; title: string } | null;
+  equipment?: { id: number; code: string; name: string } | null;
+  created_at: string;
+}
+
+export interface PriorityAssessment {
+  score: number;
+  recommended: string;
+  factors: { label: string; value: string; points: number; max: number }[];
 }
 
 export interface Facility {
@@ -39,6 +91,12 @@ export interface Report {
   user_id: number;
   facility_id: number | null;
   facility?: Facility | null;
+  equipment_id: number | null;
+  equipment?: Equipment | null;
+  severity: string | null;
+  priority_score?: number;
+  priority_assessment?: PriorityAssessment;
+  activities?: ActivityLog[];
   location_details: string | null;
   title: string;
   description: string;
@@ -79,6 +137,11 @@ export interface WorkOrder {
   report?: (Report & { photo_url: string | null }) | null;
   facility_id: number | null;
   facility?: Facility | null;
+  equipment_id: number | null;
+  equipment?: Equipment | null;
+  type: 'corrective' | 'preventive';
+  condition_after: string | null;
+  activities?: ActivityLog[];
   title: string;
   description: string | null;
   category: string | null;
@@ -163,7 +226,7 @@ export const WORK_ORDER_STATUSES: Option[] = [
 
 export const ROLES: Option[] = [
   { value: 'admin', label: 'Administrator' },
-  { value: 'maintenance', label: 'Maintenance' },
+  { value: 'maintenance', label: 'Technician' },
   { value: 'student', label: 'Student' },
   { value: 'faculty', label: 'Faculty' },
   { value: 'staff', label: 'Staff' },
@@ -185,7 +248,60 @@ export const FACILITY_STATUSES: Option[] = [
   { value: 'closed', label: 'Closed' },
 ];
 
+export const EQUIPMENT_CATEGORIES: Option[] = [
+  { value: 'computer', label: 'Computer' },
+  { value: 'printer', label: 'Printer' },
+  { value: 'network', label: 'Network device' },
+  { value: 'projector', label: 'Projector / AV' },
+  { value: 'aircon', label: 'Air-conditioner' },
+  { value: 'electrical', label: 'Electrical' },
+  { value: 'plumbing', label: 'Plumbing fixture' },
+  { value: 'lab_equipment', label: 'Laboratory equipment' },
+  { value: 'furniture', label: 'Furniture' },
+  { value: 'safety', label: 'Safety equipment' },
+  { value: 'appliance', label: 'Appliance' },
+  { value: 'other', label: 'Other' },
+];
+
+export const EQUIPMENT_CONDITIONS: Option[] = [
+  { value: 'operational', label: 'Operational' },
+  { value: 'needs_repair', label: 'Needs Repair' },
+  { value: 'under_maintenance', label: 'Under Maintenance' },
+  { value: 'out_of_service', label: 'Out of Service' },
+];
+
+export const IMPORTANCE: Option[] = [
+  { value: 'low', label: 'Low' },
+  { value: 'medium', label: 'Medium' },
+  { value: 'high', label: 'High' },
+];
+
+/** How bad the problem is, chosen by the requester. */
+export const SEVERITIES: (Option & { hint: string })[] = [
+  { value: 'minor', label: 'Minor', hint: 'Still usable' },
+  { value: 'moderate', label: 'Moderate', hint: 'Hard to use' },
+  { value: 'severe', label: 'Severe', hint: 'Unusable or unsafe' },
+];
+
+export const WORK_ORDER_TYPES: Option[] = [
+  { value: 'corrective', label: 'Repair' },
+  { value: 'preventive', label: 'Preventive' },
+];
+
+export const MAINTENANCE_STATES: Option[] = [
+  { value: 'overdue', label: 'Overdue' },
+  { value: 'due_soon', label: 'Due soon' },
+  { value: 'scheduled', label: 'Scheduled' },
+  { value: 'none', label: 'No schedule' },
+];
+
 const LISTS: Record<string, Option[]> = {
+  equipmentCategory: EQUIPMENT_CATEGORIES,
+  condition: EQUIPMENT_CONDITIONS,
+  importance: IMPORTANCE,
+  severity: SEVERITIES,
+  woType: WORK_ORDER_TYPES,
+  maintenance: MAINTENANCE_STATES,
   category: CATEGORIES,
   priority: PRIORITIES,
   status: [...REPORT_STATUSES, ...WORK_ORDER_STATUSES, ...FACILITY_STATUSES],
@@ -213,6 +329,9 @@ const TONES: Record<string, Record<string, string>> = {
     closed: 'danger',
   },
   priority: { low: 'medium', medium: 'primary', high: 'warning', critical: 'danger' },
+  condition: { operational: 'success', needs_repair: 'warning', under_maintenance: 'primary', out_of_service: 'danger' },
+  maintenance: { overdue: 'danger', due_soon: 'warning', scheduled: 'success', none: 'medium' },
+  severity: { minor: 'medium', moderate: 'warning', severe: 'danger' },
 };
 
 export function toneOf(kind: string, value: string | null | undefined): string {
@@ -220,3 +339,23 @@ export function toneOf(kind: string, value: string | null | undefined): string {
 }
 
 export const REPORTER_ROLES: Role[] = ['student', 'faculty', 'staff'];
+
+/** Icon for each equipment category. */
+export const EQUIPMENT_ICONS: Record<string, string> = {
+  computer: 'desktop-outline',
+  printer: 'print-outline',
+  network: 'wifi-outline',
+  projector: 'easel-outline',
+  aircon: 'snow-outline',
+  electrical: 'flash-outline',
+  plumbing: 'water-outline',
+  lab_equipment: 'flask-outline',
+  furniture: 'cube-outline',
+  safety: 'flame-outline',
+  appliance: 'hardware-chip-outline',
+  other: 'construct-outline',
+};
+
+export function equipmentIcon(category: string | null | undefined): string {
+  return EQUIPMENT_ICONS[category ?? ''] ?? 'construct-outline';
+}

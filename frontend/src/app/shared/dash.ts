@@ -17,31 +17,47 @@ export function greeting(date = new Date()): string {
 }
 
 /**
- * Blue header used at the top of every dashboard: avatar, greeting, bell.
- * Anything placed inside it (a call to action, a toggle) is shown below the greeting.
+ * Header used at the top of every dashboard, in the same style as the login screen:
+ * campus photo with a navy-blue overlay, logo + FacilityCare name, greeting, bell and avatar.
+ * Anything placed inside it (a headline, a toggle) is shown below the greeting.
  */
 @Component({
   selector: 'app-dash-hero',
   imports: [IonIcon, RouterLink],
   template: `
     <header class="dash-hero">
-      <div class="dash-hero-top">
-        <a class="dash-avatar" [routerLink]="profileLink()" aria-label="My profile">{{ userInitials() }}</a>
+      <div class="dash-hero-photo" aria-hidden="true"></div>
+      <div class="dash-hero-inner">
+        <div class="dash-topbar">
+          <div class="dash-brand">
+            <img src="assets/neust-logo.png" alt="" />
+            <div>
+              <div class="dash-wordmark"><span>Facility</span><span>Care</span></div>
+              <div class="dash-campus">NEUST PAPAYA OFF-CAMPUS</div>
+            </div>
+          </div>
+          <a class="dash-bell" [routerLink]="alertsLink()" [attr.aria-label]="'Notifications, ' + notifications.unread() + ' unread'">
+            <ion-icon name="notifications-outline" />
+            @if (notifications.unread()) {
+              <span class="dash-bell-badge">{{ notifications.unread() > 9 ? '9+' : notifications.unread() }}</span>
+            }
+          </a>
+          <a class="dash-avatar" [routerLink]="profileLink()" aria-label="My profile">{{ userInitials() }}</a>
+        </div>
+
         <div class="dash-hello">
           <span>{{ hello }},</span>
           <strong>{{ firstName() }}</strong>
         </div>
-        <a class="dash-bell" [routerLink]="alertsLink()" [attr.aria-label]="'Notifications, ' + notifications.unread() + ' unread'">
-          <ion-icon name="notifications-outline" />
-          @if (notifications.unread()) {
-            <span class="dash-bell-badge">{{ notifications.unread() > 9 ? '9+' : notifications.unread() }}</span>
-          }
-        </a>
+        @if (subtitle()) {
+          <div class="dash-chip"><i></i>{{ subtitle() }}</div>
+        }
+        <ng-content />
       </div>
-      @if (subtitle()) {
-        <p class="dash-sub">{{ subtitle() }}</p>
-      }
-      <ng-content />
+      <svg class="dash-wave" viewBox="0 0 1000 80" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M0,34 C220,74 470,6 700,30 C840,45 930,40 1000,26 L1000,80 L0,80 Z" fill="#f5c518" />
+        <path d="M0,46 C220,86 470,18 700,42 C840,57 930,52 1000,38 L1000,80 L0,80 Z" class="dash-wave-fill" />
+      </svg>
     </header>
   `,
 })

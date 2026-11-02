@@ -26,8 +26,8 @@ const STEP_OF: Record<string, number> = { pending: 0, approved: 1, in_progress: 
     <ion-content class="dash">
       <ion-refresher slot="fixed" (ionRefresh)="load($event)"><ion-refresher-content /></ion-refresher>
 
-      <app-dash-hero [subtitle]="roleLabel() + ' · NEUST Papaya Off-Campus'">
-        <h1>Something broken on campus?<br />Let us know.</h1>
+      <app-dash-hero [subtitle]="roleLabel() + (auth.user()?.department ? ' · ' + auth.user()?.department : '')">
+        <h1>Something broken on campus?<br /><em>Let us know.</em></h1>
       </app-dash-hero>
 
       <div class="dash-body">
@@ -47,16 +47,20 @@ const STEP_OF: Record<string, number> = { pending: 0, approved: 1, in_progress: 
           </div>
           <div class="dash-card dash-summary">
             <a class="dash-metric warning" routerLink="/tabs/my-reports" [queryParams]="{ status: 'pending' }">
-              <strong>{{ d.reports.pending }}</strong><span>Pending</span>
+                <span class="dash-metric-icon tint-warning"><ion-icon name="time-outline" /></span>
+                <strong>{{ d.reports.pending }}</strong><span>Pending</span>
             </a>
             <a class="dash-metric tertiary" routerLink="/tabs/my-reports" [queryParams]="{ status: 'approved' }">
-              <strong>{{ d.reports.approved }}</strong><span>Approved</span>
+                <span class="dash-metric-icon tint-tertiary"><ion-icon name="flag-outline" /></span>
+                <strong>{{ d.reports.approved }}</strong><span>Approved</span>
             </a>
             <a class="dash-metric primary" routerLink="/tabs/my-reports" [queryParams]="{ status: 'in_progress' }">
-              <strong>{{ d.reports.in_progress }}</strong><span>Repairing</span>
+                <span class="dash-metric-icon tint-primary"><ion-icon name="construct-outline" /></span>
+                <strong>{{ d.reports.in_progress }}</strong><span>Repairing</span>
             </a>
             <a class="dash-metric success" routerLink="/tabs/my-reports" [queryParams]="{ status: 'completed' }">
-              <strong>{{ d.reports.completed }}</strong><span>Fixed</span>
+                <span class="dash-metric-icon tint-success"><ion-icon name="checkmark-circle-outline" /></span>
+                <strong>{{ d.reports.completed }}</strong><span>Fixed</span>
             </a>
           </div>
 

@@ -45,15 +45,19 @@ interface MaintenanceDashboard {
           <div class="dash-card">
             <div class="dash-summary">
               <a class="dash-metric warning" routerLink="/tabs/tasks">
+                <span class="dash-metric-icon tint-warning"><ion-icon name="list-outline" /></span>
                 <strong>{{ d.tasks.pending }}</strong><span>To do</span>
               </a>
               <a class="dash-metric primary" routerLink="/tabs/tasks">
+                <span class="dash-metric-icon tint-primary"><ion-icon name="construct-outline" /></span>
                 <strong>{{ d.tasks.in_progress }}</strong><span>In progress</span>
               </a>
               <a class="dash-metric danger" routerLink="/tabs/tasks">
+                <span class="dash-metric-icon tint-danger"><ion-icon name="warning-outline" /></span>
                 <strong>{{ d.tasks.overdue }}</strong><span>Overdue</span>
               </a>
               <a class="dash-metric success" routerLink="/tabs/history">
+                <span class="dash-metric-icon tint-success"><ion-icon name="checkmark-done-outline" /></span>
                 <strong>{{ d.tasks.completed_this_month }}</strong><span>Done this month</span>
               </a>
             </div>
@@ -73,10 +77,14 @@ interface MaintenanceDashboard {
                 <div class="pills">
                   <app-badge kind="status" [value]="w.status" />
                   <app-badge kind="priority" [value]="w.priority" />
+                  @if (w.type === 'preventive') { <ion-badge color="tertiary" class="pill">Preventive</ion-badge> }
                 </div>
                 <h3>{{ w.title }}</h3>
                 <div class="dash-job-meta">
                   <span><ion-icon name="location-outline" />{{ w.facility?.full_name || 'No location' }}</span>
+                  @if (w.equipment) {
+                    <span><ion-icon name="desktop-outline" />{{ w.equipment.name }} ({{ w.equipment.code }})</span>
+                  }
                   @if (w.due_date) {
                     <span [class.overdue]="isOverdue(w)">
                       <ion-icon name="calendar-outline" />
@@ -84,8 +92,14 @@ interface MaintenanceDashboard {
                     </span>
                   }
                 </div>
+                @if (nextStep(w); as s) {
+                  <div class="dash-progress">
+                    <div class="dash-progress-bar"><div [style.width.%]="(s.n - 1) * 25"></div></div>
+                    <span>Step {{ s.n }} of 5 · <strong>{{ s.label }}</strong></span>
+                  </div>
+                }
                 <span class="dash-btn">
-                  {{ w.status === 'in_progress' ? 'Continue repair' : 'Open task' }}
+                  {{ w.status === 'in_progress' ? 'Continue repair' : 'Start repair' }}
                   <ion-icon name="arrow-forward-outline" />
                 </span>
               </div>
@@ -105,6 +119,12 @@ interface MaintenanceDashboard {
                   <div class="dash-item-meta">
                     <ion-icon name="location-outline" /><span>{{ w.facility?.full_name || 'No location' }}</span>
                   </div>
+                  @if (w.equipment || w.type === 'preventive') {
+                    <div class="dash-item-meta">
+                      <ion-icon [name]="w.type === 'preventive' ? 'calendar-outline' : 'desktop-outline'" />
+                      <span>{{ w.type === 'preventive' ? 'Preventive · ' : '' }}{{ w.equipment?.name || '' }}</span>
+                    </div>
+                  }
                   <div class="dash-item-meta" [class.overdue]="isOverdue(w)">
                     <ion-icon name="flag-outline" /><span>{{ priorityLabel(w) }}</span>
                     @if (w.due_date) {
@@ -159,6 +179,15 @@ export class MaintenanceDashboardPage {
     const spec = this.auth.user()?.specialization;
     return 'Maintenance' + (spec ? ' · ' + labelOf('category', spec) : '');
   });
+
+  /** Same steps as on the work order page: start → before photo → (materials) → after photo → report. */
+  protected nextStep(w: WorkOrder): { n: number; label: string } {
+    const counts = w as WorkOrder & { before_photos_count?: number; after_photos_count?: number };
+    if (w.status !== 'in_progress') return { n: 1, label: 'Start the repair' };
+    if (!counts.before_photos_count) return { n: 2, label: 'Take a "before" photo' };
+    if (!counts.after_photos_count) return { n: 4, label: 'Take an "after" photo' };
+    return { n: 5, label: 'Submit the completion report' };
+  }
 
   protected isOverdue(w: WorkOrder): boolean {
     return !!w.due_date && w.due_date < new Date().toISOString().slice(0, 10);

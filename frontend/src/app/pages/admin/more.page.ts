@@ -20,15 +20,35 @@ import { IONIC } from '../../shared/ionic';
           <div class="small muted">{{ auth.user()?.email }} · Administrator</div>
         </div>
 
+        <div class="section-title">Maintenance</div>
+        <ion-list class="cards">
+          <ion-item button detail routerLink="/preventive-maintenance">
+            <ion-icon slot="start" name="calendar-outline" color="warning" />
+            <ion-label><h3>Preventive Maintenance</h3><p>Upcoming and overdue servicing, scheduling</p></ion-label>
+          </ion-item>
+          <ion-item button detail routerLink="/technicians">
+            <ion-icon slot="start" name="build-outline" color="primary" />
+            <ion-label><h3>Technicians</h3><p>Specializations, availability and assigned tasks</p></ion-label>
+          </ion-item>
+          <ion-item button detail routerLink="/facilities-list">
+            <ion-icon slot="start" name="business-outline" color="success" />
+            <ion-label><h3>Facilities &amp; Locations</h3><p>Buildings, rooms, labs and their history</p></ion-label>
+          </ion-item>
+          <ion-item button detail routerLink="/activity">
+            <ion-icon slot="start" name="journal-outline" color="tertiary" />
+            <ion-label><h3>Activity History</h3><p>Status changes, assignments, who did what and when</p></ion-label>
+          </ion-item>
+        </ion-list>
+
         <div class="section-title">Management</div>
         <ion-list class="cards">
           <ion-item button detail routerLink="/analytics">
             <ion-icon slot="start" name="bar-chart-outline" color="primary" />
-            <ion-label><h3>Reports &amp; Analytics</h3><p>Monthly, quarterly, yearly and custom reports</p></ion-label>
+            <ion-label><h3>Maintenance Reports</h3><p>Requests, equipment conditions, completed work, technician workload</p></ion-label>
           </ion-item>
           <ion-item button detail routerLink="/users">
             <ion-icon slot="start" name="people-outline" color="tertiary" />
-            <ion-label><h3>User Management</h3><p>Students, faculty, staff and maintenance accounts</p></ion-label>
+            <ion-label><h3>User Management</h3><p>Requesters, technicians and administrator accounts</p></ion-label>
           </ion-item>
           <ion-item button detail routerLink="/notifications/send">
             <ion-icon slot="start" name="megaphone-outline" color="warning" />
