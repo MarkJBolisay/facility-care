@@ -1,4 +1,5 @@
 import { Component, inject } from '@angular/core';
+import { Router } from '@angular/router';
 import { IonBadge, IonIcon, IonLabel, IonTabBar, IonTabButton, IonTabs } from '@ionic/angular';
 import { AuthService } from '../../core/auth.service';
 import { NotificationService } from '../../core/notification.service';
@@ -9,7 +10,7 @@ import { NotificationService } from '../../core/notification.service';
   imports: [IonTabs, IonTabBar, IonTabButton, IonIcon, IonLabel, IonBadge],
   template: `
     <ion-tabs>
-      <ion-tab-bar slot="bottom">
+      <ion-tab-bar slot="bottom" class="rp-tabbar">
         @if (auth.isAdmin()) {
           <ion-tab-button tab="dashboard">
             <ion-icon name="grid-outline" /><ion-label>Dashboard</ion-label>
@@ -55,9 +56,10 @@ import { NotificationService } from '../../core/notification.service';
           <ion-tab-button tab="my-reports">
             <ion-icon name="document-text-outline" /><ion-label>My Reports</ion-label>
           </ion-tab-button>
-          <ion-tab-button tab="new-report">
-            <ion-icon name="add-circle-outline" /><ion-label>Report</ion-label>
-          </ion-tab-button>
+          <!-- big yellow + in the middle: opens the report wizard full screen (no tab bar) -->
+          <button type="button" class="rp-tab-add" aria-label="Report an issue" (click)="newReport()">
+            <ion-icon name="add" />
+          </button>
           <ion-tab-button tab="alerts">
             <ion-icon name="notifications-outline" /><ion-label>Alerts</ion-label>
             @if (notifications.unread()) {
@@ -75,4 +77,9 @@ import { NotificationService } from '../../core/notification.service';
 export class TabsPage {
   protected auth = inject(AuthService);
   protected notifications = inject(NotificationService);
+  private router = inject(Router);
+
+  newReport(): void {
+    void this.router.navigateByUrl('/reports/new');
+  }
 }

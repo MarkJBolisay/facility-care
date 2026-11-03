@@ -29,7 +29,8 @@ class ReportController extends Controller
 
         foreach (['status', 'category', 'priority', 'severity', 'equipment_id'] as $field) {
             if ($request->filled($field)) {
-                $query->where($field, $request->input($field));
+                // several values can be given as a comma list, e.g. status=approved,in_progress
+                $query->whereIn($field, explode(',', (string) $request->input($field)));
             }
         }
 
@@ -80,12 +81,20 @@ class ReportController extends Controller
             'facility_id' => 'nullable|exists:facilities,id',
             'location_details' => 'nullable|string|max:255',
             'title' => 'required|string|max:255',
-            'description' => 'required|string|max:5000',
+            'description' => 'nullable|string|max:5000',
             'category' => ['nullable', Rule::in(Report::CATEGORIES)],
+            // typed by the reporter when the category is "Others"
+            'category_other' => 'nullable|string|max:100|required_if:category,others',
             'equipment_id' => 'nullable|exists:equipment,id',
             'severity' => ['nullable', Rule::in(Report::SEVERITIES)],
             'photo' => 'nullable|image|max:8192',
         ]);
+
+        // "Additional details" is optional on the form; the column is not nullable
+        $data['description'] = $data['description'] ?? '';
+        if (($data['category'] ?? null) !== 'others') {
+            $data['category_other'] = null;
+        }
 
         if ($request->hasFile('photo')) {
             $data['photo'] = Uploads::store($request->file('photo'), 'reports');
@@ -146,6 +155,10 @@ class ReportController extends Controller
 
         $oldPriority = $report->priority;
         $oldCategory = $report->category;
+        // the typed "Others" text only belongs to the "others" category
+        if (array_key_exists('category', $data) && $data['category'] !== 'others') {
+            $data['category_other'] = null;
+        }
         $report->update($data);
 
         if (array_key_exists('priority', $data) && $data['priority'] !== $oldPriority) {
@@ -192,6 +205,7 @@ class ReportController extends Controller
         $from = $report->status;
         $report->update([
             ...array_filter($data, fn ($v) => $v !== null),
+            ...(! empty($data['category']) && $data['category'] !== 'others' ? ['category_other' => null] : []),
             'status' => 'approved',
             'reviewed_by' => $request->user()->id,
             'reviewed_at' => now(),

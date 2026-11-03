@@ -48,12 +48,18 @@ interface Step {
               <app-badge kind="status" [value]="r.status" />
               <app-badge kind="priority" [value]="r.priority" />
               @if (r.severity) { <app-badge kind="severity" [value]="r.severity" /> }
-              <ion-badge color="light" class="pill">{{ r.category | label: 'category' }}</ion-badge>
+              <ion-badge color="light" class="pill">{{ r.category | label: 'category' }}{{ r.category === 'others' && r.category_other ? ': ' + r.category_other : '' }}</ion-badge>
             </div>
             <p class="pre-wrap">{{ r.description }}</p>
             <dl class="kv">
               <dt>Location</dt>
-              <dd>{{ r.facility?.full_name || '—' }}@if (r.location_details) {<br /><span class="muted">{{ r.location_details }}</span>}</dd>
+              <dd>
+                @if (r.facility) {
+                  {{ r.facility.full_name }}@if (r.location_details) {<br /><span class="muted">{{ r.location_details }}</span>}
+                } @else {
+                  {{ r.location_details || '—' }}
+                }
+              </dd>
               <dt>Reported by</dt>
               <dd>{{ r.reporter?.name }} <span class="muted">({{ r.reporter?.role | label: 'role' }})</span></dd>
               <dt>Submitted</dt>
@@ -228,7 +234,7 @@ interface Step {
             <div class="panel ion-text-center">
               <p class="mt-0"><strong>{{ r.status === 'completed' ? 'Still not fixed?' : 'Still a problem?' }}</strong></p>
               <p class="small muted">Send a follow-up report. The details of this report will be filled in for you.</p>
-              <ion-button expand="block" fill="outline" routerLink="/tabs/new-report" [queryParams]="{ followUp: r.id }">
+              <ion-button expand="block" fill="outline" routerLink="/reports/new" [queryParams]="{ followUp: r.id }">
                 <ion-icon slot="start" name="refresh-outline" /> Report it again
               </ion-button>
             </div>

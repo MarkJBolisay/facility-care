@@ -1,0 +1,143 @@
+/* ==========================================================================
+   Admin and technician screens (and the shared pages: report details,
+   alerts, profile) in the same look as the student / faculty / staff screens:
+   blue header, soft page background, rounded cards, pill filters.
+   Colours come from theme/reporter.scss (--rp-*).
+   ========================================================================== */
+
+/* Included at the END of global.scss (@include staff.styles) so it wins over the older rules there. */
+@mixin styles {
+/* ---------- Blue page header (every page with an ion-toolbar) ---------- */
+ion-header:not(.rp-head-wrap) { background: var(--rp-page); box-shadow: none; }
+ion-header:not(.rp-head-wrap)::after { display: none; }
+ion-header ion-toolbar:first-of-type {
+  --background: var(--rp-head);
+  --color: #fff;
+  --border-width: 0;
+  --min-height: 60px;
+  --padding-start: 12px;
+  --padding-end: 12px;
+}
+ion-header ion-toolbar:first-of-type ion-title { font-size: 1.35rem; font-weight: 800; letter-spacing: -0.01em; }
+ion-header ion-toolbar:first-of-type ion-button,
+ion-header ion-toolbar:first-of-type ion-back-button,
+ion-header ion-toolbar:first-of-type ion-menu-button { --color: #fff; }
+/* coloured header buttons (e.g. the red delete) turn white so they show on the blue */
+ion-header ion-toolbar:first-of-type ion-button::part(native) { color: #fff; }
+.panel h2 { font-weight: 800; color: var(--rp-ink); }
+
+/* second toolbar under the header (search box or tabs on some pages): light, like the page */
+ion-header ion-toolbar:not(:first-of-type) {
+  --background: var(--rp-page);
+  --border-width: 0;
+  --padding-start: 16px;
+  --padding-end: 16px;
+  --padding-top: 8px;
+  --padding-bottom: 4px;
+}
+ion-header ion-toolbar:not(:first-of-type) ion-searchbar { padding: 0; }
+
+/* search + filter row and status chips under the header */
+.filter-bar { padding: 14px 16px 8px; gap: 10px; }
+/* [class] makes this win over Ionic's own searchbar styles */
+ion-header ion-searchbar[class] {
+  --background: var(--rp-card);
+  --border-radius: 12px;
+  --box-shadow: 0 0 0 1px var(--rp-line);
+  --icon-color: var(--rp-text);
+  --placeholder-color: #9aa4b5;
+  --placeholder-opacity: 1;
+  height: 46px;
+}
+.filter-bar ion-button {
+  --border-radius: 12px;
+  --border-color: var(--rp-line);
+  --background: var(--rp-card);
+  --color: var(--rp-blue);
+  height: 46px;
+  margin: 0;
+  font-weight: 700;
+}
+.toolbar-chips { gap: 8px; padding: 4px 16px 12px; }
+.toolbar-chips ion-chip {
+  height: 36px; margin: 0; padding: 0 16px; border-radius: 999px;
+  font-size: 0.86rem; font-weight: 600;
+}
+.toolbar-chips ion-chip.chip-outline {
+  background: var(--rp-card) !important; border-color: var(--rp-line) !important; color: var(--rp-ink) !important;
+}
+.toolbar-chips ion-chip:not(.chip-outline) {
+  background: var(--rp-blue) !important; border: 1px solid var(--rp-blue); color: #fff !important;
+  box-shadow: 0 4px 12px rgba(21, 101, 240, 0.28);
+}
+
+/* ---------- Cards and panels ---------- */
+ion-list.cards ion-item {
+  --background: var(--rp-card);
+  --padding-top: 4px;
+  --padding-bottom: 4px;
+  border-color: var(--rp-line);
+  border-radius: 16px;
+  box-shadow: var(--rp-shadow);
+  overflow: hidden;
+}
+ion-list.cards ion-item h3 { font-size: 1rem; font-weight: 800; color: var(--rp-ink); }
+ion-list.cards ion-item p { color: var(--rp-text); }
+.panel { border-color: var(--rp-line); border-radius: 16px; box-shadow: var(--rp-shadow); background: var(--rp-card); }
+.stat { border-color: var(--rp-line); border-radius: 16px; box-shadow: var(--rp-shadow); background: var(--rp-card); }
+.section-title { color: var(--rp-ink); letter-spacing: 0.04em; }
+ion-fab-button { --background: var(--rp-blue); --box-shadow: 0 8px 18px rgba(21, 101, 240, 0.35); }
+
+/* ---------- Dashboards (admin + technician) ---------- */
+ion-content.dash { --background: var(--rp-art), var(--rp-page); }
+.dash-hero { padding-bottom: 70px; }
+.dash-hero-photo::after {
+  background: linear-gradient(180deg, rgba(8, 36, 130, 0.97) 0%, rgba(12, 60, 190, 0.86) 48%, rgba(12, 60, 190, 0.3) 100%);
+}
+.dash-wordmark span:last-child { color: var(--rp-yellow); }
+.dash-campus { color: rgba(255, 255, 255, 0.85); letter-spacing: 0.12em; }
+.dash-wave-fill { fill: var(--rp-page); }
+.dash-card { border-color: var(--rp-line); box-shadow: var(--rp-shadow); background: var(--rp-card); }
+.dash-section h2 { font-size: 1.08rem; }
+/* bell and avatar stay readable over the bright part of the photo */
+.dash .dash-bell, .dash .dash-avatar { background: rgba(8, 36, 130, 0.55); border-color: rgba(255, 255, 255, 0.35); }
+
+/* ==========================================================================
+   Laptop / desktop (900px+): wider pages, cards in a grid, dashboards in two columns
+   ========================================================================== */
+@media (min-width: 900px) {
+  ion-header ion-toolbar:first-of-type { --padding-start: 24px; --padding-end: 24px; }
+  .filter-bar, .toolbar-chips { padding-left: max(16px, calc(50% - 590px)); padding-right: max(16px, calc(50% - 590px)); }
+  ion-header ion-toolbar:not(:first-of-type) { --padding-start: max(16px, calc(50% - 590px)); --padding-end: max(16px, calc(50% - 590px)); }
+
+  /* list pages: use the width, two or three cards per row */
+  .max:has(> ion-list.cards) { max-width: 1180px; }
+  .max > ion-list.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 14px; }
+  .max > ion-list.cards ion-item { margin-bottom: 0; }
+
+  /* dashboards */
+  .dash-hero { padding: 18px 32px 64px; }
+  .dash-hero-photo { background-position: 50% 38%; }
+  .dash-hero-photo::after {
+    background: linear-gradient(90deg, rgba(8, 36, 130, 0.97) 0%, rgba(12, 60, 190, 0.88) 38%, rgba(12, 60, 190, 0.3) 75%, rgba(12, 60, 190, 0.15) 100%);
+  }
+  .dash-hero-inner { max-width: 1180px; }
+  .dash-body { max-width: 1244px; padding: 0 32px 28px; }
+  .dash-cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 0 28px; align-items: start; }
+  .dash-col > .dash-section:first-child { margin-top: 0; }
+  /* the right column starts below the header wave (the left one starts with a card that overlaps it) */
+  .dash-col:last-child > .dash-section:first-child { margin-top: 44px; }
+  .dash-avail { max-width: 560px; }
+}
+
+/* short laptop screens (e.g. 1280 x 600 with Windows zoom at 150%) */
+@media (min-width: 900px) and (max-height: 700px) {
+  ion-header ion-toolbar:first-of-type { --min-height: 52px; }
+  ion-header ion-toolbar:first-of-type ion-title { font-size: 1.25rem; }
+  .filter-bar { padding-top: 10px; padding-bottom: 6px; }
+  ion-header ion-searchbar[class], .filter-bar ion-button { height: 42px; }
+  .toolbar-chips { padding-bottom: 8px; }
+  .toolbar-chips ion-chip { height: 32px; }
+  .dash-hero { padding-top: 14px; padding-bottom: 56px; }
+}
+}

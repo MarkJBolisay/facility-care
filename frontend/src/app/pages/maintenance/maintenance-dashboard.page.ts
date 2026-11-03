@@ -42,6 +42,9 @@ interface MaintenanceDashboard {
 
       <div class="dash-body">
         @if (data(); as d) {
+          <!-- laptop: two columns (theme/staff.scss); phone: one column -->
+          <div class="dash-cols">
+          <div class="dash-col">
           <div class="dash-card">
             <div class="dash-summary">
               <a class="dash-metric warning" routerLink="/tabs/tasks">
@@ -106,6 +109,8 @@ interface MaintenanceDashboard {
             </a>
           }
 
+          </div>
+          <div class="dash-col">
           <div class="dash-section">
             <h2>Up next</h2>
             <a routerLink="/tabs/tasks">All tasks</a>
@@ -150,6 +155,8 @@ interface MaintenanceDashboard {
                 <div class="dash-card dash-empty" style="padding: 16px">Nothing else in your queue.</div>
               }
             }
+          </div>
+          </div>
           </div>
         } @else {
           <ion-skeleton-text animated class="dash-skeleton" />

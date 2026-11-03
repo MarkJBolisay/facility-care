@@ -19,12 +19,16 @@ export async function resizeImage(file: File, maxSize = 1600, quality = 0.82): P
   }
 }
 
-/** Opens the camera / gallery picker and resolves with the chosen photo (or null). */
-export function pickPhoto(): Promise<File | null> {
+/**
+ * Opens the photo picker and resolves with the chosen photo (or null).
+ * camera = true opens the phone camera directly (on a laptop it is the normal file picker).
+ */
+export function pickPhoto(camera = false): Promise<File | null> {
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = 'image/*';
+    if (camera) input.setAttribute('capture', 'environment');
     input.onchange = () => resolve(input.files?.[0] ?? null);
     input.oncancel = () => resolve(null);
     input.click();

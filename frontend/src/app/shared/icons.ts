@@ -1,6 +1,17 @@
 import { addIcons } from 'ionicons';
 import {
   addCircleOutline,
+  checkmarkCircle,
+  closeCircle,
+  checkmark,
+  close,
+  chevronDownOutline,
+  searchOutline,
+  imagesOutline,
+  add,
+  checkmarkOutline,
+  shieldCheckmark,
+  briefcaseOutline,
   logInOutline,
   alarmOutline,
   wifiOutline,
@@ -82,6 +93,17 @@ import {
 
 export function registerIcons(): void {
   addIcons({
+    checkmarkCircle,
+    closeCircle,
+    checkmark,
+    close,
+    chevronDownOutline,
+    searchOutline,
+    imagesOutline,
+    add,
+    checkmarkOutline,
+    shieldCheckmark,
+    briefcaseOutline,
     addCircleOutline,
     logInOutline,
     alarmOutline,

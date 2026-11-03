@@ -23,7 +23,7 @@ class Report extends Model
 
     protected $fillable = [
         'reference', 'user_id', 'facility_id', 'equipment_id', 'severity', 'location_details', 'title', 'description',
-        'category', 'priority', 'status', 'photo', 'admin_remarks', 'reviewed_by', 'reviewed_at',
+        'category', 'category_other', 'priority', 'status', 'photo', 'admin_remarks', 'reviewed_by', 'reviewed_at',
     ];
 
     protected $casts = [

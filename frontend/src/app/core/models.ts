@@ -101,6 +101,8 @@ export interface Report {
   title: string;
   description: string;
   category: string | null;
+  /** what the reporter typed when the category is "Others" */
+  category_other?: string | null;
   priority: string | null;
   status: string;
   photo_url: string | null;

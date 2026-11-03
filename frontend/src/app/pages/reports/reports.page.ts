@@ -115,7 +115,7 @@ import { SHARED, completeRefresh } from '../../shared/ui';
               <ion-label>
                 <h3>{{ r.title }}</h3>
                 <p>{{ r.reference }} · {{ r.created_at | ago }}</p>
-                <p><ion-icon name="location-outline" /> {{ r.facility?.full_name || r.location_details || 'No location' }}</p>
+                <p><ion-icon name="location-outline" /> {{ r.facility?.full_name || (r.location_details ? '' : 'No location') }}{{ r.location_details ? (r.facility ? ' – ' : '') + r.location_details : '' }}</p>
                 @if (r.equipment) {
                   <p><ion-icon name="desktop-outline" /> {{ r.equipment.name }} ({{ r.equipment.code }})</p>
                 }
@@ -131,7 +131,7 @@ import { SHARED, completeRefresh } from '../../shared/ui';
                     <span class="score-pill" title="Recommended priority score"><ion-icon name="sparkles" />{{ r.priority_score }}</span>
                   }
                   @if (r.category) {
-                    <ion-badge color="light" class="pill">{{ r.category | label: 'category' }}</ion-badge>
+                    <ion-badge color="light" class="pill">{{ r.category | label: 'category' }}{{ r.category === 'others' && r.category_other ? ': ' + r.category_other : '' }}</ion-badge>
                   }
                   @if (r.active_work_order?.assignee) {
                     <ion-badge color="light" class="pill">{{ r.active_work_order.assignee.name }}</ion-badge>

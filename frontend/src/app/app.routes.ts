@@ -10,6 +10,7 @@ const page = {
     import('./pages/maintenance/maintenance-dashboard.page').then((m) => m.MaintenanceDashboardPage),
   reporterHome: () => import('./pages/reporter/reporter-home.page').then((m) => m.ReporterHomePage),
   reports: () => import('./pages/reports/reports.page').then((m) => m.ReportsPage),
+  myReports: () => import('./pages/reports/my-reports.page').then((m) => m.MyReportsPage),
   reportForm: () => import('./pages/reports/report-form.page').then((m) => m.ReportFormPage),
   reportDetail: () => import('./pages/reports/report-detail.page').then((m) => m.ReportDetailPage),
   workOrders: () => import('./pages/work-orders/work-orders.page').then((m) => m.WorkOrdersPage),
@@ -64,8 +65,9 @@ export const routes: Routes = [
 
       // Students / faculty / staff
       { path: 'my-home', canActivate: [reporter], loadComponent: page.reporterHome },
-      { path: 'my-reports', canActivate: [reporter], loadComponent: page.reports },
-      { path: 'new-report', canActivate: [reporter], loadComponent: page.reportForm },
+      { path: 'my-reports', canActivate: [reporter], loadComponent: page.myReports },
+      // the report wizard is full screen (no tab bar)
+      { path: 'new-report', redirectTo: '/reports/new' },
 
       // Shared tabs
       { path: 'alerts', loadComponent: page.notifications },

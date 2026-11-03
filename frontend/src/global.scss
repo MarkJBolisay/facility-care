@@ -1,6 +1,8 @@
 @use "./theme/fonts";
 @use "./theme/dashboard";
 @use "./theme/login";
+@use "./theme/reporter";
+@use "./theme/staff";
 /*
  * App Global CSS
  * ----------------------------------------------------------------------------
@@ -67,7 +69,7 @@
 }
 
 ion-content.page {
-  --background: var(--fc-page);
+  --background: var(--rp-art), var(--rp-page);
 }
 
 .muted { color: var(--fc-muted); }
@@ -491,3 +493,6 @@ ion-toggle { white-space: normal; }
 .prio-rec-head em { font-style: normal; font-weight: 500; font-size: 0.8rem; color: var(--fc-muted); }
 .prio-factor { margin-top: 6px; }
 .prio-factor-head { display: flex; justify-content: space-between; gap: 8px; font-size: 0.76rem; margin-bottom: 3px; }
+
+/* New look for admin / technician / shared pages (theme/staff.scss), last so it wins */
+@include staff.styles;

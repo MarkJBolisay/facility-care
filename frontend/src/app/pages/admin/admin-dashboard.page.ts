@@ -51,6 +51,9 @@ interface AdminDashboard {
 
       <div class="dash-body">
         @if (data(); as d) {
+          <!-- laptop: two columns (theme/staff.scss); phone: one column -->
+          <div class="dash-cols">
+          <div class="dash-col">
           <!-- Totals -->
           <div class="dash-card">
             <div class="dash-summary" style="--cols: 3">
@@ -146,6 +149,8 @@ interface AdminDashboard {
             </div>
           }
 
+          </div>
+          <div class="dash-col">
           <!-- Equipment status -->
           <div class="dash-section">
             <h2>Equipment status</h2>
@@ -279,6 +284,8 @@ interface AdminDashboard {
                 <ion-icon name="chevron-forward-outline" class="chev" />
               </a>
             }
+          </div>
+          </div>
           </div>
         } @else {
           <ion-skeleton-text animated class="dash-skeleton" style="height: 110px" />

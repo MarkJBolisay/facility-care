@@ -205,3 +205,153 @@ ion-content.lg { --background: var(--lg-page); }
   .lg .auth-field .auth-eye { background: transparent; }
 }
 .lg .auth-btn ion-icon { font-size: 20px; }
+
+/* ==========================================================================
+   Create account screen (same layout as login, see register.page.ts)
+   ========================================================================== */
+.rg-badge {
+  display: grid; place-items: center; width: 64px; height: 64px; margin: 0 auto 10px;
+  border-radius: 50%; background: rgba(21, 101, 240, 0.1); color: var(--lg-blue);
+}
+.rg-badge ion-icon { font-size: 32px; }
+
+.rg-roles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 16px; }
+.rg-roles button {
+  display: flex; align-items: center; justify-content: center; gap: 8px; height: 46px; padding: 0 6px;
+  border: 1px solid var(--lg-line); border-radius: 8px; background: var(--lg-field);
+  color: var(--lg-navy); font-size: 0.92rem; font-weight: 700; cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.rg-roles button ion-icon { flex-shrink: 0; font-size: 20px; }
+.rg-roles button.active {
+  background: var(--lg-blue); border-color: var(--lg-blue); color: #fff;
+  box-shadow: 0 6px 14px rgba(21, 101, 240, 0.25);
+}
+
+.rg-rules {
+  display: flex; gap: 12px; margin: 0 0 16px; padding: 12px 14px;
+  border-radius: 10px; background: rgba(21, 101, 240, 0.07);
+  font-size: 0.8rem; color: var(--lg-navy);
+}
+.rg-shield { flex-shrink: 0; font-size: 24px; color: var(--lg-blue); }
+.rg-rules strong { display: block; margin-bottom: 4px; font-weight: 700; }
+.rg-rules ul { display: grid; grid-template-columns: 1fr; gap: 3px 16px; margin: 0; padding: 0; list-style: none; }
+.rg-rules li { display: flex; align-items: flex-start; gap: 6px; color: var(--lg-text); line-height: 1.35; }
+.rg-rules li ion-icon { flex-shrink: 0; margin-top: 1px; font-size: 15px; color: #9aa4b5; }
+.rg-rules li.ok { color: var(--lg-navy); }
+.rg-rules li.ok ion-icon { color: #16a34a; }
+
+.rg-foot {
+  display: flex; align-items: center; gap: 14px; margin: 20px 0 0;
+  font-size: 0.92rem; color: var(--lg-text); text-align: center;
+}
+.rg-foot::before, .rg-foot::after { content: ''; flex: 1; height: 1px; background: var(--lg-line); }
+.rg-foot a { margin-left: 4px; color: var(--lg-blue); font-weight: 700; text-decoration: none; }
+
+@media (min-width: 480px) {
+  .rg-rules ul { grid-template-columns: auto auto; }
+}
+@media (max-width: 360px) {
+  .rg-roles { gap: 6px; }
+  .rg-roles button { gap: 5px; font-size: 0.82rem; }
+  .rg-roles button ion-icon { font-size: 17px; }
+}
+
+
+/* ---------- Login + create account, tablet / laptop / desktop ----------
+   Built to the 1846 x 852 design. Every size is in "u" (1u = 8.52px on the design),
+   and u follows the screen height (capped by width), so the whole page fits on one
+   screen at any laptop size, exactly like the design, with no scrolling. */
+@media (min-width: 900px) {
+  .lg { --u: max(5px, min(1vh, 0.46vw)); }
+  .lg .lg-wrap { min-height: 100vh; }
+
+  /* Photo panel: same width as the photo in the design (1162 of 1846) */
+  .lg .lg-hero { flex: 0 0 63%; padding: calc(10 * var(--u)) 0 0 calc(15.8 * var(--u)); }
+  .lg .lg-photo { background-position: 0 100%; }
+  .lg .lg-hero-inner { justify-content: flex-start; }
+  .lg .lg-brand { gap: calc(1.8 * var(--u)); }
+  .lg .lg-hero .lg-logo { width: calc(22.9 * var(--u)); height: calc(22.9 * var(--u)); }
+  .lg .lg-hero .lg-wordmark { font-size: calc(8.3 * var(--u)); }
+  .lg .lg-tagline { max-width: calc(49 * var(--u)); margin-top: calc(1.2 * var(--u)); font-size: calc(2.5 * var(--u)); line-height: 1.3; }
+  .lg .lg-campus { gap: calc(1.4 * var(--u)); margin-top: calc(2.6 * var(--u)); font-size: calc(1.75 * var(--u)); letter-spacing: 0.3em; }
+  .lg .lg-campus i { width: calc(7 * var(--u)); height: calc(0.35 * var(--u)); }
+
+  /* Card on the right. Flex (not grid) so a card wider than the panel spills left over the photo. */
+  .lg .lg-side {
+    display: flex; align-items: center; justify-content: flex-end; overflow: visible; min-width: 0;
+    padding: calc(3 * var(--u)) calc(8 * var(--u)) calc(3 * var(--u)) 0;
+  }
+  .lg .lg-card {
+    /* the card and everything in it is drawn at 82% so it has room above and below */
+    --u: calc(0.82 * max(5px, min(1vh, 0.46vw)));
+    flex: 0 0 auto; width: calc(82.5 * var(--u)); max-width: none; margin: 0;
+    padding: calc(1.8 * var(--u)) calc(6.7 * var(--u)) calc(2.6 * var(--u));
+    border-radius: calc(4.7 * var(--u));
+  }
+  .lg .lg-card h1 { font-size: calc(3.6 * var(--u)); line-height: 1.15; }
+  .lg .lg-sub { margin: calc(0.5 * var(--u)) 0 calc(1.9 * var(--u)); font-size: calc(1.8 * var(--u)); }
+
+  /* Fields and main button (both pages) */
+  .lg .auth-label { margin-bottom: calc(0.45 * var(--u)); font-size: calc(1.8 * var(--u)); line-height: 1.2; }
+  .lg .auth-field {
+    height: calc(4.5 * var(--u)); margin-bottom: calc(0.8 * var(--u)); padding: 0 calc(1.8 * var(--u));
+    gap: calc(1.4 * var(--u)); border-radius: calc(1 * var(--u));
+  }
+  .lg .auth-field > ion-icon { font-size: calc(2.4 * var(--u)); }
+  .lg .auth-field input { font-size: calc(1.85 * var(--u)); }
+  .lg .auth-field .auth-eye {
+    width: calc(5.6 * var(--u)); margin: 0 calc(-1.8 * var(--u)) 0 calc(0.4 * var(--u));
+    border-radius: 0 calc(1 * var(--u)) calc(1 * var(--u)) 0;
+  }
+  .lg .auth-field .auth-eye ion-icon { font-size: calc(2.4 * var(--u)); }
+  .lg .auth-error { margin: calc(-0.6 * var(--u)) 0 calc(1 * var(--u)); font-size: calc(1.6 * var(--u)); }
+  .lg .auth-btn { height: calc(6.1 * var(--u)); gap: calc(1 * var(--u)); border-radius: calc(1.2 * var(--u)); font-size: calc(2.35 * var(--u)); }
+  .lg .auth-btn ion-icon { font-size: calc(2.8 * var(--u)); }
+  .lg .auth-btn ion-spinner { width: calc(2.8 * var(--u)); height: calc(2.8 * var(--u)); }
+
+  /* Login card only */
+  /* the login form is shorter, so it is drawn a bit bigger (92%) to match the create-account card's height */
+  .lg:not(.rg) .lg-card { --u: calc(0.92 * max(5px, min(1vh, 0.46vw))); width: calc(70 * var(--u)); padding-top: calc(3 * var(--u)); padding-bottom: calc(3 * var(--u)); }
+  .lg .lg-card-brand { gap: calc(0.4 * var(--u)); margin-bottom: calc(2.2 * var(--u)); }
+  .lg .lg-card-brand .lg-logo { width: calc(13 * var(--u)); height: calc(13 * var(--u)); }
+  .lg .lg-card-brand .lg-wordmark { font-size: calc(4.4 * var(--u)); }
+  .lg .lg-campus-center {
+    margin-top: calc(0.3 * var(--u)); padding: 0 calc(0.4 * var(--u)) calc(1 * var(--u));
+    border-bottom-width: calc(0.35 * var(--u)); font-size: calc(1.45 * var(--u)); letter-spacing: 0.3em;
+  }
+  .lg:not(.rg) .auth-field { margin-bottom: calc(1.6 * var(--u)); }
+  .lg-row { margin: calc(-0.2 * var(--u)) 0 calc(1.8 * var(--u)); gap: calc(1 * var(--u)); }
+  .lg-check, .lg .auth-link { font-size: calc(1.75 * var(--u)); }
+  .lg-check { gap: calc(0.9 * var(--u)); }
+  .lg-check input { width: calc(2.1 * var(--u)); height: calc(2.1 * var(--u)); }
+  .lg-or { gap: calc(1.4 * var(--u)); margin: calc(1.8 * var(--u)) 0; font-size: calc(1.75 * var(--u)); }
+  .lg-google {
+    height: calc(5.6 * var(--u)); gap: calc(1.2 * var(--u)); border-radius: calc(1.2 * var(--u));
+    font-size: calc(1.95 * var(--u));
+  }
+  .lg-google svg { width: calc(2.6 * var(--u)); height: calc(2.6 * var(--u)); }
+  .lg-foot { margin-top: calc(2.4 * var(--u)); font-size: calc(1.85 * var(--u)); }
+
+  /* Create account card only */
+  .rg-badge { width: calc(8.5 * var(--u)); height: calc(8.5 * var(--u)); margin-bottom: calc(0.6 * var(--u)); }
+  .rg-badge ion-icon { font-size: calc(4.2 * var(--u)); }
+  .rg-roles { gap: calc(1 * var(--u)); margin-bottom: calc(1.2 * var(--u)); }
+  .rg-roles button { height: calc(5.2 * var(--u)); gap: calc(1 * var(--u)); border-radius: calc(1 * var(--u)); font-size: calc(1.95 * var(--u)); }
+  .rg-roles button:not(.active) { background: #fff; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.06); }
+  .rg-roles button ion-icon { font-size: calc(2.6 * var(--u)); }
+  /* plain eye icon on this card, like the design */
+  .lg.rg .auth-field .auth-eye { width: auto; margin: 0; border: 0; border-radius: 0; background: transparent; }
+
+  .rg-rules {
+    gap: calc(1.4 * var(--u)); margin: calc(1 * var(--u)) 0 calc(1.9 * var(--u));
+    padding: calc(1.2 * var(--u)) calc(1.8 * var(--u)); border-radius: calc(1.2 * var(--u));
+    font-size: calc(1.45 * var(--u));
+  }
+  .rg-shield { font-size: calc(3 * var(--u)); }
+  .rg-rules strong { margin-bottom: calc(0.4 * var(--u)); font-size: calc(1.6 * var(--u)); }
+  .rg-rules ul { grid-template-columns: auto auto; gap: calc(0.3 * var(--u)) calc(2.4 * var(--u)); }
+  .rg-rules li { gap: calc(0.6 * var(--u)); color: var(--lg-navy); }
+  .rg-rules li ion-icon { margin-top: 0; font-size: calc(1.8 * var(--u)); }
+  .rg-foot { gap: calc(1.6 * var(--u)); margin-top: calc(2.4 * var(--u)); font-size: calc(1.9 * var(--u)); }
+}

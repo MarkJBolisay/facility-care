@@ -162,6 +162,10 @@ class DashboardController extends Controller
                 ->where('user_id', $user->id)
                 ->whereIn('status', ['pending', 'approved', 'in_progress'])
                 ->latest()->limit(10)->get(),
+            // Latest reports of any status, for the "Recent Reports" list on the home screen
+            'recent_reports' => Report::with(['facility.parent', 'activeWorkOrder.assignee:id,name'])
+                ->where('user_id', $user->id)
+                ->latest()->limit(3)->get(),
             // Recently finished (completed or rejected)
             'recent_closed' => Report::with('facility.parent')
                 ->where('user_id', $user->id)
