@@ -355,3 +355,188 @@ ion-content.lg { --background: var(--lg-page); }
   .rg-rules li ion-icon { margin-top: 0; font-size: calc(1.8 * var(--u)); }
   .rg-foot { gap: calc(1.6 * var(--u)); margin-top: calc(2.4 * var(--u)); font-size: calc(1.9 * var(--u)); }
 }
+
+
+/* ==========================================================================
+   Login screen ("lx", see login.page.ts)
+   Full-screen campus photo, white card with a yellow outline and blue + yellow
+   swooshes in the top-left and bottom-right corners.
+   The card sits in the middle of the screen (assets/campus-bg.jpg behind it).
+   ========================================================================== */
+ion-content.lx { --background: #9cc3ef; }
+
+.lx-photo {
+  position: fixed;
+  inset: 0;
+  background: url('/assets/campus-bg.jpg') 50% 50% / cover no-repeat;
+}
+/* very light shade over the photo so the white card stands out */
+.lx-photo::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(10, 30, 80, 0.12);
+}
+
+.lx-wrap, .lx-card, .lx .auth-field, .lx .auth-btn { box-sizing: border-box; }
+.lx-wrap {
+  position: relative; z-index: 1;
+  display: flex; align-items: center; justify-content: center;
+  min-height: 100%;
+  padding: calc(20px + var(--ion-safe-area-top, 0px)) 16px calc(20px + var(--ion-safe-area-bottom, 0px));
+}
+
+.lx-card {
+  position: relative; overflow: hidden;
+  width: 100%; max-width: 440px;
+  padding: 26px 24px 30px;
+  background: var(--lg-card);
+  border: 2px solid var(--lg-yellow);
+  border-radius: 30px;
+  box-shadow: 0 24px 60px rgba(10, 30, 90, 0.35);
+}
+.lx-card > :not(.lx-swoosh) { position: relative; z-index: 1; }
+
+.lx-swoosh { position: absolute; z-index: 0; pointer-events: none; }
+.lx-swoosh-tl { top: 0; left: 0; width: 34%; height: 110px; }
+.lx-swoosh-br { right: 0; bottom: 0; width: 26%; height: 70px; }
+
+/* Logo + name */
+.lx-brand { display: flex; flex-direction: column; align-items: center; text-align: center; }
+.lx-logo { display: block; width: 92px; height: 92px; object-fit: contain; filter: drop-shadow(0 6px 12px rgba(10, 30, 90, 0.2)); }
+.lx-wordmark { margin-top: 6px; font-size: 2.2rem; font-weight: 800; letter-spacing: -0.02em; line-height: 1.05; }
+.lx-wordmark span:first-child { color: var(--lg-navy); }
+.lx-wordmark span:last-child { color: var(--lg-blue); }
+.lx-campus {
+  margin-top: 4px; padding: 0 6px 10px;
+  border-bottom: 3px solid var(--lg-yellow);
+  font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em; color: var(--lg-navy);
+}
+
+.lx-card h1 { margin: 18px 0 0; text-align: center; font-size: 1.75rem; font-weight: 800; color: var(--lg-navy); letter-spacing: -0.01em; }
+.lx-sub { margin: 4px 0 20px; text-align: center; font-size: 0.95rem; color: var(--lg-text); }
+
+.lx form { display: flex; flex-direction: column; }
+.lx-label { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font-size: 0.88rem; font-weight: 700; color: var(--lg-navy); }
+.lx-label ion-icon { font-size: 18px; color: var(--lg-navy); }
+
+.lx .auth-field {
+  height: 46px; margin-bottom: 14px; padding: 0 16px;
+  background: var(--lg-card); border: 1px solid var(--lg-line); border-radius: 12px;
+}
+.lx .auth-field:focus-within { border-color: var(--lg-blue); box-shadow: 0 0 0 3px rgba(21, 101, 240, 0.15); }
+.lx .auth-field input { font-size: 0.95rem; color: var(--lg-navy); }
+.lx .auth-eye { margin-right: -6px; color: #6b7280; }
+
+.lx-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: 2px 0 16px; }
+.lx-check { display: inline-flex; align-items: center; gap: 8px; font-size: 0.9rem; color: var(--lg-navy); cursor: pointer; }
+.lx-check input { width: 18px; height: 18px; margin: 0; accent-color: var(--lg-blue); cursor: pointer; }
+.lx-link { padding: 0; border: 0; background: none; font-size: 0.88rem; font-weight: 700; color: var(--lg-blue); cursor: pointer; }
+
+.lx .auth-error { margin: -6px 0 12px; }
+.lx .auth-btn {
+  margin-top: 0; height: 48px; border-radius: 999px;
+  background: #1250c4; font-size: 1.05rem;
+  box-shadow: 0 8px 18px rgba(18, 80, 196, 0.3);
+}
+.lx .auth-btn ion-icon { font-size: 20px; }
+
+.lx .auth-btn:active { transform: translateY(1px); }
+
+.lx-foot { margin: 20px 0 0; text-align: center; font-size: 0.92rem; color: var(--lg-text); }
+.lx-foot a { margin-left: 8px; color: var(--lg-blue); font-weight: 800; text-decoration: none; }
+
+@media (max-width: 360px) {
+  .lx-wrap { padding-left: 10px; padding-right: 10px; }
+  .lx-card { padding: 22px 16px 26px; }
+  .lx-wordmark { font-size: 1.9rem; }
+  .lx-card h1 { font-size: 1.5rem; }
+  .lx-check, .lx-link { font-size: 0.82rem; }
+}
+
+/* Tablet / laptop / desktop: card floats on the right side of the photo.
+   Every size is in "v" (follows the screen height, capped by the width), so the
+   card fills about 88% of the screen height on any laptop, with no scrolling.
+   Tuned for a 1920x1080 laptop at 125% scaling (browser area about 1536 x 730). */
+@media (min-width: 900px) {
+  .lx { --v: min(1.1vh, 0.6vw); }
+  .lx-wrap {
+    min-height: 100vh;
+    padding: calc(2 * var(--v)) calc(4.5 * var(--v));
+  }
+  .lx-card {
+    width: calc(52 * var(--v)); max-width: none;
+    padding: calc(3.5 * var(--v)) calc(4.4 * var(--v)) calc(4 * var(--v));
+    border-width: calc(0.25 * var(--v));
+    border-radius: calc(4.4 * var(--v));
+  }
+  .lx-swoosh-tl { height: calc(15 * var(--v)); }
+  .lx-swoosh-br { height: calc(9 * var(--v)); }
+
+  .lx-logo { width: calc(11.5 * var(--v)); height: calc(11.5 * var(--v)); }
+  .lx-wordmark { margin-top: calc(0.6 * var(--v)); font-size: calc(4.6 * var(--v)); }
+  .lx-campus {
+    margin-top: calc(0.3 * var(--v)); padding: 0 calc(0.6 * var(--v)) calc(1.1 * var(--v));
+    border-bottom-width: calc(0.35 * var(--v)); font-size: calc(1.6 * var(--v));
+  }
+  .lx-card h1 { margin-top: calc(1.8 * var(--v)); font-size: calc(3.6 * var(--v)); line-height: 1.15; }
+  .lx-sub { margin: calc(0.5 * var(--v)) 0 calc(2.2 * var(--v)); font-size: calc(1.85 * var(--v)); }
+
+  .lx-label { gap: calc(0.9 * var(--v)); margin-bottom: calc(0.7 * var(--v)); font-size: calc(1.75 * var(--v)); }
+  .lx-label ion-icon { font-size: calc(2.1 * var(--v)); }
+  .lx .auth-field {
+    height: calc(4.8 * var(--v)); margin-bottom: calc(1.6 * var(--v)); padding: 0 calc(1.8 * var(--v));
+    border-radius: calc(1.3 * var(--v));
+  }
+  .lx .auth-field input { font-size: calc(1.85 * var(--v)); }
+  .lx .auth-eye { width: calc(3.6 * var(--v)); height: calc(3.6 * var(--v)); }
+  .lx .auth-eye ion-icon { font-size: calc(2.3 * var(--v)); }
+
+  .lx-row { margin: calc(0.3 * var(--v)) 0 calc(1.8 * var(--v)); }
+  .lx-check { gap: calc(0.9 * var(--v)); }
+  .lx-check, .lx-link { font-size: calc(1.75 * var(--v)); }
+  .lx-check input { width: calc(2 * var(--v)); height: calc(2 * var(--v)); }
+  .lx .auth-error { margin: calc(-0.6 * var(--v)) 0 calc(1.2 * var(--v)); font-size: calc(1.6 * var(--v)); }
+
+  .lx .auth-btn { height: calc(5.4 * var(--v)); gap: calc(1 * var(--v)); font-size: calc(2.1 * var(--v)); }
+  .lx .auth-btn ion-icon { font-size: calc(2.4 * var(--v)); }
+  .lx .auth-btn ion-spinner { width: calc(2.6 * var(--v)); height: calc(2.6 * var(--v)); }
+
+  .lx-foot { margin-top: calc(2.2 * var(--v)); font-size: calc(1.8 * var(--v)); }
+}
+
+/* ---------- Create account card (same design as login, longer form) ----------
+   The role buttons and password rules (.rg-*) size themselves with --u, so it
+   follows --v here. The card is a bit wider and tighter; the page scrolls if needed. */
+.lxr .lx-logo { width: 72px; height: 72px; }
+.lxr .lx-wordmark { font-size: 1.9rem; }
+.lxr .lx-card h1 { margin-top: 12px; font-size: 1.55rem; }
+.lxr .lx-sub { margin-bottom: 14px; }
+.lxr .auth-field { margin-bottom: 12px; }
+.lxr .rg-roles { margin-bottom: 14px; }
+.lxr .rg-roles button { border-radius: 999px; }
+.lxr .auth-btn { margin-top: 0; }
+
+/* Two fields side by side (name + ID, password + confirm) on wider screens */
+@media (min-width: 600px) {
+  .rg-pair { display: grid; grid-template-columns: 1fr 1fr; column-gap: 14px; }
+  .rg-pair > div { min-width: 0; }
+}
+
+@media (min-width: 900px) {
+  .lx.lxr { --u: var(--v); }
+  .rg-pair { column-gap: calc(1.6 * var(--v)); }
+  .lxr .lx-wrap { padding-top: calc(1.2 * var(--v)); padding-bottom: calc(1.2 * var(--v)); }
+  .lxr .lx-card { width: calc(62 * var(--v)); padding-top: calc(2.6 * var(--v)); padding-bottom: calc(3 * var(--v)); }
+  .lxr .lx-logo { width: calc(8 * var(--v)); height: calc(8 * var(--v)); }
+  .lxr .lx-wordmark { margin-top: calc(0.3 * var(--v)); font-size: calc(3.6 * var(--v)); }
+  .lxr .lx-campus { font-size: calc(1.4 * var(--v)); padding-bottom: calc(0.8 * var(--v)); }
+  .lxr .lx-card h1 { margin-top: calc(1.2 * var(--v)); font-size: calc(3 * var(--v)); }
+  .lxr .lx-sub { margin-bottom: calc(1.6 * var(--v)); font-size: calc(1.7 * var(--v)); }
+  .lxr .lx-label { margin-bottom: calc(0.5 * var(--v)); }
+  .lxr .auth-field { height: calc(4.4 * var(--v)); margin-bottom: calc(1.1 * var(--v)); }
+  .lxr .rg-roles { margin-bottom: calc(1.3 * var(--v)); }
+  .lxr .rg-roles button { height: calc(4.6 * var(--v)); }
+  .lxr .rg-rules { margin: calc(0.4 * var(--v)) 0 calc(1.6 * var(--v)); }
+  .lxr .lx-foot { margin-top: calc(1.6 * var(--v)); }
+}

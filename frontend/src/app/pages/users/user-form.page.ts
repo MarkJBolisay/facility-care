@@ -41,7 +41,7 @@ import { IONIC } from '../../shared/ionic';
               </ion-item>
               <ion-item><ion-input label="Full name" labelPlacement="stacked" name="name" [(ngModel)]="form.name" required /></ion-item>
               <ion-item><ion-input label="Email" labelPlacement="stacked" type="email" name="email" [(ngModel)]="form.email" required /></ion-item>
-              <ion-item><ion-input label="ID number" labelPlacement="stacked" name="id_number" [(ngModel)]="form.id_number" /></ion-item>
+              <ion-item><ion-input [label]="form.role === 'student' ? 'Student ID' : 'ID number'" labelPlacement="stacked" name="id_number" [placeholder]="form.role === 'student' ? 'e.g. PPY2023-00249' : ''" [(ngModel)]="form.id_number" /></ion-item>
               <ion-item><ion-input label="Department / course" labelPlacement="stacked" name="department" [(ngModel)]="form.department" /></ion-item>
               <ion-item><ion-input label="Phone" labelPlacement="stacked" type="tel" name="phone" [(ngModel)]="form.phone" /></ion-item>
               @if (form.role === 'maintenance') {

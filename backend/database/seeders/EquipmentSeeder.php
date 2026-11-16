@@ -21,7 +21,6 @@ class EquipmentSeeder extends Seeder
 {
     public function run(): void
     {
-        $this->technician();
 
         if (Equipment::count() === 0) {
             $this->equipment();
@@ -32,21 +31,6 @@ class EquipmentSeeder extends Seeder
         if (ActivityLog::count() === 0) {
             $this->backfillActivity();
         }
-    }
-
-    /** An IT technician, so computers and projectors have a specialist. */
-    private function technician(): void
-    {
-        User::firstOrCreate(['email' => 'paolo@facilitycare.test'], [
-            'name' => 'Paolo Mendoza',
-            'password' => Hash::make('password'),
-            'role' => 'maintenance',
-            'phone' => '0918 000 0014',
-            'department' => 'Maintenance',
-            'specialization' => 'it_equipment',
-            'is_active' => true,
-            'is_available' => true,
-        ]);
     }
 
     private function equipment(): void

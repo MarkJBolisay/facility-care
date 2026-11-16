@@ -45,8 +45,8 @@ npm start          # or: ionic serve
 
 | Role | Email |
 |---|---|
-| Administrator | admin@facilitycare.test |
-| Technician | ramon@ (electrical) / jose@ (plumbing) / mario@ (carpentry) / liza@ (aircon) / paolo@ (IT) facilitycare.test |
+| Administrator | adminfacilitycare@gmail.com |
+| Technician | julietapleras@gmail.com (Julie Tapleras, electrical) / oliversarmiento@gmail.com (Oliver Sarmiento, plumbing) |
 | Student | student@facilitycare.test, ana@facilitycare.test |
 | Faculty | faculty@facilitycare.test, maria@facilitycare.test |
 | Staff | staff@facilitycare.test |

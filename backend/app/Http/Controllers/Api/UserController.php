@@ -34,10 +34,10 @@ class UserController extends Controller
 
     public function store(Request $request)
     {
-        $data = $request->validate($this->rules() + [
+        $data = $request->validate($this->rules($request) + [
             'email' => 'required|email|unique:users,email',
             'password' => 'required|string|min:6',
-        ]);
+        ], $this->messages());
 
         return response()->json(User::create($data), 201);
     }
@@ -53,10 +53,10 @@ class UserController extends Controller
 
     public function update(Request $request, User $user)
     {
-        $data = $request->validate($this->rules() + [
+        $data = $request->validate($this->rules($request, $user) + [
             'email' => ['required', 'email', Rule::unique('users')->ignore($user->id)],
             'password' => 'nullable|string|min:6',
-        ]);
+        ], $this->messages());
 
         if (empty($data['password'])) {
             unset($data['password']);
@@ -85,14 +85,29 @@ class UserController extends Controller
         return response()->noContent();
     }
 
-    private function rules(): array
+    private function messages(): array
     {
+        return [
+            'id_number.regex' => 'Student ID must look like PPY2023-00249.',
+            'id_number.unique' => 'This Student ID is already used by another account.',
+        ];
+    }
+
+    private function rules(Request $request, ?User $user = null): array
+    {
+        // student IDs are stored in capitals (ppy2023-00249 -> PPY2023-00249)
+        if (is_string($request->input('id_number'))) {
+            $request->merge(['id_number' => strtoupper(trim($request->input('id_number'))) ?: null]);
+        }
+
         return [
             'name' => 'required|string|max:255',
             'role' => ['required', Rule::in(User::ROLES)],
             'phone' => 'nullable|string|max:30',
             'department' => 'nullable|string|max:255',
-            'id_number' => 'nullable|string|max:50',
+            'id_number' => $request->input('role') === 'student'
+                ? ['nullable', 'string', 'regex:'.User::STUDENT_ID_PATTERN, Rule::unique('users', 'id_number')->ignore($user?->id)]
+                : ['nullable', 'string', 'max:50'],
             'specialization' => 'nullable|string|max:100',
             'is_active' => 'boolean',
             'is_available' => 'boolean',

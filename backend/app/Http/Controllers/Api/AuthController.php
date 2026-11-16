@@ -38,14 +38,25 @@ class AuthController extends Controller
     /** Self sign-up is only for students, faculty and staff. */
     public function register(Request $request)
     {
+        // student IDs are stored in capitals (ppy2023-00249 -> PPY2023-00249)
+        if (is_string($request->input('id_number'))) {
+            $request->merge(['id_number' => strtoupper(trim($request->input('id_number'))) ?: null]);
+        }
+
         $data = $request->validate([
             'name' => 'required|string|max:255',
             'email' => 'required|email|unique:users,email',
             'password' => ['required', 'string', 'confirmed', Password::min(8)->mixedCase()->numbers()->symbols()],
             'role' => ['required', Rule::in(User::REPORTER_ROLES)],
             'department' => 'nullable|string|max:255',
-            'id_number' => 'nullable|string|max:50',
+            'id_number' => $request->input('role') === 'student'
+                ? ['required', 'string', 'regex:'.User::STUDENT_ID_PATTERN, 'unique:users,id_number']
+                : ['nullable', 'string', 'max:50'],
             'phone' => 'nullable|string|max:30',
+        ], [
+            'id_number.required' => 'Enter your Student ID.',
+            'id_number.regex' => 'Student ID must look like PPY2023-00249.',
+            'id_number.unique' => 'This Student ID is already registered.',
         ]);
 
         $user = User::create($data);

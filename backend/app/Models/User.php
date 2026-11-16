@@ -19,6 +19,9 @@ class User extends Authenticatable
     /** Roles that can submit facility reports. */
     public const REPORTER_ROLES = ['student', 'faculty', 'staff'];
 
+    /** Student ID format: "PPY" + year + "-" + 5 digits, e.g. PPY2023-00249. */
+    public const STUDENT_ID_PATTERN = '/^PPY\d{4}-\d{5}$/';
+
     protected $fillable = [
         'name',
         'email',

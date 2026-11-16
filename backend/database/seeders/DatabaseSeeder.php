@@ -20,15 +20,13 @@ class DatabaseSeeder extends Seeder
 
         // --- Users ---------------------------------------------------------
         $admin = User::create([
-            'name' => 'Facility Admin', 'email' => 'admin@facilitycare.test', 'password' => 'password',
+            'name' => 'Facility Admin', 'email' => 'adminfacilitycare@gmail.com', 'password' => 'password',
             'role' => 'admin', 'department' => 'Facility Management Office', 'phone' => '0917 000 0001',
         ]);
 
         $tech = collect([
-            ['Ramon Dela Cruz', 'ramon@facilitycare.test', 'electrical'],
-            ['Jose Santos', 'jose@facilitycare.test', 'plumbing'],
-            ['Mario Reyes', 'mario@facilitycare.test', 'carpentry'],
-            ['Liza Bautista', 'liza@facilitycare.test', 'aircon'],
+            ['Julie Tapleras', 'julietapleras@gmail.com', 'electrical'],
+            ['Oliver Sarmiento', 'oliversarmiento@gmail.com', 'plumbing'],
         ])->map(fn ($t, $i) => User::create([
             'name' => $t[0], 'email' => $t[1], 'password' => 'password', 'role' => 'maintenance',
             'specialization' => $t[2], 'department' => 'Maintenance', 'phone' => '0918 000 00'.($i + 10),
@@ -213,9 +211,9 @@ class DatabaseSeeder extends Seeder
 
         // A few standalone (preventive) work orders not tied to a report
         foreach ([
-            ['Quarterly aircon cleaning – IT Building', 'ITB-CL1', 'aircon', 'medium', 'Liza Bautista'],
-            ['Monthly fire extinguisher inspection', 'MB-101', 'safety', 'high', 'Mario Reyes'],
-            ['Generator test run', 'GYM-CRT', 'electrical', 'low', 'Ramon Dela Cruz'],
+            ['Quarterly aircon cleaning – IT Building', 'ITB-CL1', 'aircon', 'medium', 'Oliver Sarmiento'],
+            ['Monthly fire extinguisher inspection', 'MB-101', 'safety', 'high', 'Julie Tapleras'],
+            ['Generator test run', 'GYM-CRT', 'electrical', 'low', 'Julie Tapleras'],
         ] as [$title, $code, $cat, $prio, $who]) {
             WorkOrder::create([
                 'facility_id' => $rooms->firstWhere('code', $code)->id,
