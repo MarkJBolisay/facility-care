@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Download FacilityCare</title>
+  <meta name="description" content="Download the FacilityCare Android app for NEUST Papaya Off-Campus: report facility problems and track repairs." />
+  <meta name="theme-color" content="#0b2a6f" />
+  <link rel="icon" type="image/png" href="assets/neust-logo.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <!--
+    Download page for the FacilityCare Android app.
+    Published to GitHub Pages by .github/workflows/android-apk.yml, which also
+    copies the logo + campus photo into assets/ and writes version.json.
+  -->
+  <style>
+    :root {
+      --navy: #0b2a6f;
+      --blue: #1565f0;
+      --btn: #1250c4;
+      --yellow: #f5c518;
+      --text: #5b6475;
+      --line: #d7dee8;
+      --soft: #f1f6fe;
+      --card: #ffffff;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, 'Segoe UI', Roboto, sans-serif;
+      color: var(--navy);
+      background: #9cc3ef;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* full-screen campus photo with a light shade */
+    .photo {
+      position: fixed; inset: 0; z-index: 0;
+      background: #9cc3ef url('assets/campus-bg.jpg') 50% 50% / cover no-repeat;
+    }
+    .photo::after { content: ''; position: absolute; inset: 0; background: rgba(10, 30, 80, 0.18); }
+
+    .wrap {
+      position: relative; z-index: 1;
+      min-height: 100vh; min-height: 100dvh;
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px 16px;
+    }
+
+    .card {
+      position: relative; overflow: hidden;
+      width: 100%; max-width: 760px;
+      background: var(--card);
+      border: 2px solid var(--yellow);
+      border-radius: 32px;
+      box-shadow: 0 24px 60px rgba(10, 30, 90, 0.35);
+      padding: 32px 28px 36px;
+    }
+    .card > :not(.swoosh) { position: relative; z-index: 1; }
+    .swoosh { position: absolute; z-index: 0; pointer-events: none; }
+    .swoosh.tl { top: 0; left: 0; width: 30%; height: 120px; }
+    .swoosh.br { right: 0; bottom: 0; width: 24%; height: 80px; }
+
+    .brand { display: flex; flex-direction: column; align-items: center; text-align: center; }
+    .brand img { width: 96px; height: 96px; object-fit: contain; filter: drop-shadow(0 6px 12px rgba(10, 30, 90, 0.2)); }
+    .wordmark { margin-top: 6px; font-size: 2.4rem; font-weight: 800; letter-spacing: -0.02em; line-height: 1.05; }
+    .wordmark span { color: var(--blue); }
+    .campus {
+      margin-top: 4px; padding: 0 6px 10px; border-bottom: 3px solid var(--yellow);
+      font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em;
+    }
+
+    h1 { margin: 22px 0 6px; text-align: center; font-size: 1.8rem; font-weight: 800; letter-spacing: -0.01em; }
+    .lead { margin: 0 auto 24px; max-width: 480px; text-align: center; color: var(--text); font-size: 1rem; line-height: 1.5; }
+
+    .main { display: grid; gap: 24px; align-items: center; }
+    .get { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+
+    .download {
+      display: inline-flex; align-items: center; justify-content: center; gap: 12px;
+      width: 100%; max-width: 360px; height: 58px; padding: 0 28px;
+      border-radius: 999px; background: var(--btn); color: #fff;
+      font-size: 1.1rem; font-weight: 700; text-decoration: none;
+      box-shadow: 0 10px 22px rgba(18, 80, 196, 0.32);
+      transition: transform 0.12s, box-shadow 0.12s, background 0.12s;
+    }
+    .download:hover { background: #0f45ad; box-shadow: 0 12px 26px rgba(18, 80, 196, 0.4); }
+    .download:active { transform: translateY(1px); }
+    .download:focus-visible { outline: 3px solid var(--yellow); outline-offset: 3px; }
+    .download svg { width: 24px; height: 24px; flex-shrink: 0; }
+
+    .meta { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 14px; font-size: 0.86rem; color: var(--text); }
+    .meta b { color: var(--navy); font-weight: 700; }
+    .meta .dot { color: var(--line); }
+    .all { font-size: 0.86rem; font-weight: 700; color: var(--blue); text-decoration: none; }
+    .all:hover { text-decoration: underline; }
+
+    .qr {
+      display: none; flex-direction: column; align-items: center; gap: 10px;
+      padding: 16px; border: 1px solid var(--line); border-radius: 20px; background: #fff;
+    }
+    .qr-box { width: 148px; height: 148px; }
+    .qr-box img, .qr-box canvas { width: 148px !important; height: 148px !important; }
+    .qr p { margin: 0; max-width: 160px; text-align: center; font-size: 0.8rem; color: var(--text); line-height: 1.35; }
+
+    .steps {
+      margin: 28px 0 0; padding: 18px 20px; border-radius: 18px; background: var(--soft);
+    }
+    .steps h2 { margin: 0 0 12px; font-size: 1rem; font-weight: 800; }
+    .steps ol { margin: 0; padding: 0; list-style: none; display: grid; gap: 12px; counter-reset: step; }
+    .steps li { display: flex; gap: 12px; align-items: flex-start; font-size: 0.92rem; color: var(--text); line-height: 1.45; }
+    .steps li::before {
+      counter-increment: step; content: counter(step);
+      flex-shrink: 0; display: grid; place-items: center; width: 26px; height: 26px;
+      border-radius: 50%; background: var(--btn); color: #fff; font-size: 0.82rem; font-weight: 800;
+    }
+    .steps li b { color: var(--navy); }
+
+    .foot { margin: 22px 0 0; text-align: center; font-size: 0.8rem; color: var(--text); line-height: 1.5; }
+
+    /* laptop / desktop: QR code next to the button so a phone can scan it */
+    @media (min-width: 720px) {
+      .card { padding: 40px 48px 44px; }
+      .main { grid-template-columns: 1fr auto; }
+      .get { align-items: flex-start; }
+      .meta { justify-content: flex-start; }
+      .qr { display: flex; }
+      .steps ol { grid-template-columns: repeat(3, 1fr); }
+      .steps li { flex-direction: column; gap: 8px; }
+    }
+    @media (max-width: 380px) {
+      .card { padding: 26px 18px 30px; border-radius: 26px; }
+      .wordmark { font-size: 2rem; }
+      h1 { font-size: 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="photo" aria-hidden="true"></div>
+
+  <main class="wrap">
+    <div class="card">
+      <svg class="swoosh tl" viewBox="0 0 200 140" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M0,0 L200,0 C130,6 70,30 34,72 C16,94 6,116 0,140 Z" fill="#1d5fd8" />
+        <path d="M200,0 C130,6 70,30 34,72 C16,94 6,116 0,140 L0,128 C8,104 20,84 38,64 C76,24 132,4 200,0 Z" fill="#f5c518" />
+      </svg>
+      <svg class="swoosh br" viewBox="0 0 200 140" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M200,140 L0,140 C70,134 130,110 166,68 C184,46 194,24 200,0 Z" fill="#1d5fd8" />
+        <path d="M0,140 C70,134 130,110 166,68 C184,46 194,24 200,0 L200,14 C192,38 180,58 162,78 C124,118 68,136 0,140 Z" fill="#f5c518" />
+      </svg>
+
+      <div class="brand">
+        <img src="assets/neust-logo.png" alt="NEUST Papaya Off-Campus logo" />
+        <div class="wordmark">Facility<span>Care</span></div>
+        <div class="campus">NEUST PAPAYA OFF-CAMPUS</div>
+      </div>
+
+      <h1>Get the Android App</h1>
+      <p class="lead">Report broken facilities, follow repairs, and get updates from the facility office, right from your phone.</p>
+
+      <div class="main">
+        <div class="get">
+          <a class="download" id="download" href="#" download>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 3v12" /><path d="m7 10 5 5 5-5" /><path d="M5 21h14" />
+            </svg>
+            Download APK
+          </a>
+          <div class="meta" id="meta">
+            <span>Android 7.0 or newer</span>
+          </div>
+          <a class="all" id="all" href="#">All versions &rarr;</a>
+        </div>
+
+        <div class="qr" aria-label="QR code to open this page on your phone">
+          <div class="qr-box" id="qr"></div>
+          <p>Scan with your phone to download</p>
+        </div>
+      </div>
+
+      <section class="steps">
+        <h2>How to install</h2>
+        <ol>
+          <li><span>Tap <b>Download APK</b> on your Android phone and wait for it to finish.</span></li>
+          <li><span>Open the file. If asked, allow <b>Install unknown apps</b> for your browser, then tap <b>Install</b>.</span></li>
+          <li><span>Open <b>FacilityCare</b> and log in, or create an account with your school email.</span></li>
+        </ol>
+      </section>
+
+      <p class="foot" id="foot">Updating? If the new version won't install over the old one, uninstall FacilityCare first, then install again.</p>
+    </div>
+  </main>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script>
+    (function () {
+      // Fallback repo when version.json isn't there (e.g. opening the file locally).
+      var repo = 'MarkJBolisay/facility-care';
+      var download = document.getElementById('download');
+      var all = document.getElementById('all');
+      var meta = document.getElementById('meta');
+
+      function setLinks(r) {
+        download.href = 'https://github.com/' + r + '/releases/latest/download/FacilityCare.apk';
+        all.href = 'https://github.com/' + r + '/releases';
+      }
+      setLinks(repo);
+
+      function mb(bytes) { return (bytes / 1048576).toFixed(1) + ' MB'; }
+      function day(iso) {
+        var d = new Date(iso);
+        return isNaN(d) ? '' : d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
+      }
+      function item(html) {
+        if (meta.children.length) {
+          var dot = document.createElement('span'); dot.className = 'dot'; dot.textContent = '•'; meta.appendChild(dot);
+        }
+        var s = document.createElement('span'); s.innerHTML = html; meta.appendChild(s);
+      }
+
+      fetch('version.json', { cache: 'no-store' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (v) {
+          if (!v) return;
+          if (v.repo) setLinks(v.repo);
+          meta.innerHTML = '';
+          if (v.version) item('Version <b>' + v.version + '</b>');
+          if (v.size) item(mb(v.size));
+          if (v.date) item('Updated ' + day(v.date));
+          item('Android 7.0+');
+        })
+        .catch(function () {});
+
+      // QR code that opens this page on a phone (laptop / desktop only)
+      try {
+        if (window.QRCode && window.matchMedia('(min-width: 720px)').matches) {
+          new QRCode(document.getElementById('qr'), {
+            text: location.href.split('#')[0],
+            width: 296, height: 296,
+            colorDark: '#0b2a6f', colorLight: '#ffffff',
+            correctLevel: QRCode.CorrectLevel.M
+          });
+        }
+      } catch (e) {}
+    })();
+  </script>
+</body>
+</html>

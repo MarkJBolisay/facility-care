@@ -1,0 +1,161 @@
+# Builds the FacilityCare Android app (APK) and publishes the download page.
+#
+#   1. build-apk  : Angular production build -> Capacitor sync -> Gradle -> FacilityCare.apk
+#   2. release    : puts the APK on a GitHub Release (marked "latest")
+#   3. site       : publishes the download page in /site to GitHub Pages
+#
+# Runs on every push to main that changes the app or the site, or by hand
+# from the Actions tab ("Run workflow").
+#
+# Optional repository variable (Settings -> Secrets and variables -> Actions -> Variables):
+#   API_URL  e.g. https://your-server.com/api
+#            Where the phone app reaches the Laravel backend. If it is not set, the
+#            address in frontend/src/environments/environment.prod.ts is used.
+
+name: Android APK + download site
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'frontend/**'
+      - 'site/**'
+      - '.github/workflows/android-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write   # create the release
+  pages: write      # deploy the download page
+  id-token: write   # required by deploy-pages
+
+concurrency:
+  group: android-apk
+  cancel-in-progress: false
+
+jobs:
+  build-apk:
+    name: Build APK
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Version number
+        id: version
+        run: echo "version=1.0.${{ github.run_number }}" >> "$GITHUB_OUTPUT"
+
+      - name: Point the app at the backend (API_URL variable)
+        if: ${{ vars.API_URL != '' }}
+        env:
+          API_URL: ${{ vars.API_URL }}
+        run: |
+          sed -i "s#apiUrl: '.*'#apiUrl: '${API_URL}'#" src/environments/environment.prod.ts
+          cat src/environments/environment.prod.ts
+
+      - name: Install packages
+        run: npm ci
+
+      - name: Build web app (production)
+        run: npx ng build --configuration production
+
+      - name: Copy web app into Android project
+        run: npx cap sync android
+
+      - name: Set app version
+        run: |
+          sed -i "s/versionCode [0-9]*/versionCode ${{ github.run_number }}/" android/app/build.gradle
+          sed -i "s/versionName \".*\"/versionName \"${{ steps.version.outputs.version }}\"/" android/app/build.gradle
+
+      - name: Build APK
+        working-directory: frontend/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+          cp app/build/outputs/apk/debug/app-debug.apk "$GITHUB_WORKSPACE/FacilityCare.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FacilityCare-apk
+          path: FacilityCare.apk
+          if-no-files-found: error
+
+  release:
+    name: Publish release
+    needs: build-apk
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: FacilityCare-apk
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.build-apk.outputs.version }}
+          name: FacilityCare v${{ needs.build-apk.outputs.version }}
+          target_commitish: ${{ github.sha }}
+          make_latest: true
+          files: FacilityCare.apk
+          body: |
+            FacilityCare Android app, build ${{ needs.build-apk.outputs.version }}.
+
+            Download **FacilityCare.apk** below and open it on your Android phone (Android 7.0 or newer).
+            You may need to allow "Install unknown apps" for your browser.
+
+  site:
+    name: Publish download page
+    needs: [build-apk, release]
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: FacilityCare-apk
+
+      - name: Assemble site
+        env:
+          VERSION: ${{ needs.build-apk.outputs.version }}
+        run: |
+          mkdir -p _site/assets
+          cp -r site/. _site/
+          cp frontend/src/assets/neust-logo.png frontend/src/assets/campus-bg.jpg _site/assets/
+          SIZE=$(stat -c %s FacilityCare.apk)
+          DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          cat > _site/version.json <<EOF
+          {
+            "version": "${VERSION}",
+            "size": ${SIZE},
+            "date": "${DATE}",
+            "commit": "${GITHUB_SHA::7}",
+            "repo": "${GITHUB_REPOSITORY}"
+          }
+          EOF
+          cat _site/version.json
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deploy
+        uses: actions/deploy-pages@v4
