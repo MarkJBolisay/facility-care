@@ -10,6 +10,7 @@ import { apiHost } from '../../core/server';
 import { openServerDialog } from '../../core/server-dialog';
 
 import { IONIC } from '../../shared/ionic';
+import { CapitalizeDirective } from '../../shared/capitalize';
 
 type Role = 'student' | 'faculty' | 'staff';
 
@@ -31,7 +32,7 @@ const STUDENT_ID = /^PPY\d{4}-\d{5}$/;
  */
 @Component({
   selector: 'app-register',
-  imports: [...IONIC, FormsModule, RouterLink],
+  imports: [...IONIC, FormsModule, RouterLink, CapitalizeDirective],
   template: `
     <ion-content class="auth lx lxr">
       <!-- Full-screen campus photo -->
@@ -79,7 +80,7 @@ const STUDENT_ID = /^PPY\d{4}-\d{5}$/;
             <div>
             <label class="lx-label" for="reg-name"><ion-icon name="person" /> Full Name</label>
             <div class="auth-field">
-              <input id="reg-name" name="name" autocomplete="name" placeholder="Juan Dela Cruz" [(ngModel)]="form.name" />
+              <input id="reg-name" appCapitalize name="name" autocomplete="name" placeholder="Juan Dela Cruz" [(ngModel)]="form.name" />
             </div>
             </div>
 

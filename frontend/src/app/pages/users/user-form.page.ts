@@ -6,11 +6,12 @@ import { AuthService } from '../../core/auth.service';
 import { CATEGORIES, ROLES, User } from '../../core/models';
 import { UiService } from '../../core/ui.service';
 import { IONIC } from '../../shared/ionic';
+import { CapitalizeDirective } from '../../shared/capitalize';
 
 /** Admin: create or edit any account (students, faculty, staff, maintenance, admins). */
 @Component({
   selector: 'app-user-form',
-  imports: [...IONIC, FormsModule],
+  imports: [...IONIC, FormsModule, CapitalizeDirective],
   template: `
     <ion-header>
       <ion-toolbar>
@@ -39,7 +40,7 @@ import { IONIC } from '../../shared/ionic';
                   }
                 </ion-select>
               </ion-item>
-              <ion-item><ion-input label="Full name" labelPlacement="stacked" name="name" [(ngModel)]="form.name" required /></ion-item>
+              <ion-item><ion-input label="Full name" labelPlacement="stacked" name="name" appCapitalize [(ngModel)]="form.name" required /></ion-item>
               <ion-item><ion-input label="Email" labelPlacement="stacked" type="email" name="email" [(ngModel)]="form.email" required /></ion-item>
               <ion-item><ion-input [label]="form.role === 'student' ? 'Student ID' : 'ID number'" labelPlacement="stacked" name="id_number" [placeholder]="form.role === 'student' ? 'e.g. PPY2023-00249' : ''" [(ngModel)]="form.id_number" /></ion-item>
               <ion-item><ion-input label="Department / course" labelPlacement="stacked" name="department" [(ngModel)]="form.department" /></ion-item>

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Database\Factories\UserFactory;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -48,6 +49,20 @@ class User extends Authenticatable
             'is_active' => 'boolean',
             'is_available' => 'boolean',
         ];
+    }
+
+    /** Names are saved with each word starting with a capital: "juan dela cruz" → "Juan Dela Cruz". */
+    protected function name(): Attribute
+    {
+        return Attribute::make(set: fn (?string $value) => $value === null ? null : self::formatName($value));
+    }
+
+    /** Capitalize the first letter of every word (also after "-" or "'"), tidy the spaces, leave the other letters as typed. */
+    public static function formatName(string $name): string
+    {
+        $name = trim(preg_replace('/\s+/u', ' ', $name));
+
+        return preg_replace_callback('/(^|[\s\-\'])(\p{Ll})/u', fn ($m) => $m[1].mb_strtoupper($m[2]), $name);
     }
 
     public function isAdmin(): bool

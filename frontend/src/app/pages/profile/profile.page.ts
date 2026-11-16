@@ -7,10 +7,11 @@ import { User } from '../../core/models';
 import { UiService } from '../../core/ui.service';
 import { IONIC } from '../../shared/ionic';
 import { SHARED } from '../../shared/ui';
+import { CapitalizeDirective } from '../../shared/capitalize';
 
 @Component({
   selector: 'app-profile',
-  imports: [...IONIC, ...SHARED, FormsModule],
+  imports: [...IONIC, ...SHARED, FormsModule, CapitalizeDirective],
   template: `
     <ion-header>
       <ion-toolbar>
@@ -31,7 +32,7 @@ import { SHARED } from '../../shared/ui';
           <div class="section-title">Details</div>
           <div class="panel">
             <ion-list lines="full">
-              <ion-item><ion-input label="Name" labelPlacement="stacked" [(ngModel)]="form.name" /></ion-item>
+              <ion-item><ion-input label="Name" labelPlacement="stacked" appCapitalize [(ngModel)]="form.name" /></ion-item>
               <ion-item><ion-input label="Email" labelPlacement="stacked" type="email" [(ngModel)]="form.email" /></ion-item>
               <ion-item><ion-input label="Phone" labelPlacement="stacked" type="tel" [(ngModel)]="form.phone" /></ion-item>
               <ion-item><ion-input label="Department" labelPlacement="stacked" [(ngModel)]="form.department" /></ion-item>
