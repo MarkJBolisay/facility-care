@@ -2,7 +2,9 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -15,6 +17,27 @@ class WorkOrder extends Model
 
     /** corrective = fixing a reported problem · preventive = scheduled servicing */
     public const TYPES = ['corrective', 'preventive'];
+
+    /** The campus clock: the server runs on UTC, but "today" for a target date is today in the Philippines. */
+    public const LOCAL_TIMEZONE = 'Asia/Manila';
+
+    /**
+     * A target date can't be set in the past. $current is the date already saved,
+     * so editing an overdue work order without touching its date still works.
+     */
+    public static function assertDueDateNotPast(?string $due, ?string $current = null): void
+    {
+        if (! $due) {
+            return;
+        }
+        $due = Carbon::parse($due)->toDateString();
+        if ($due === $current) {
+            return;
+        }
+        if ($due < Carbon::today(self::LOCAL_TIMEZONE)->toDateString()) {
+            throw ValidationException::withMessages(['due_date' => "Target date can't be in the past."]);
+        }
+    }
 
     protected $fillable = [
         'reference', 'report_id', 'facility_id', 'equipment_id', 'title', 'description', 'category', 'type', 'priority',

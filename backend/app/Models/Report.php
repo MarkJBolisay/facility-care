@@ -18,16 +18,21 @@ class Report extends Model
 
     public const STATUSES = ['pending', 'approved', 'rejected', 'in_progress', 'completed'];
 
+    /** Still waiting to be fixed. */
+    public const OPEN_STATUSES = ['pending', 'approved', 'in_progress'];
+
     /** How bad the problem is, chosen by the requester. */
     public const SEVERITIES = ['minor', 'moderate', 'severe'];
 
     protected $fillable = [
         'reference', 'user_id', 'facility_id', 'equipment_id', 'severity', 'location_details', 'title', 'description',
         'category', 'category_other', 'priority', 'status', 'photo', 'admin_remarks', 'reviewed_by', 'reviewed_at',
+        'confirmed_at', 'reopen_count',
     ];
 
     protected $casts = [
         'reviewed_at' => 'datetime',
+        'confirmed_at' => 'datetime',
     ];
 
     protected $appends = ['photo_url'];

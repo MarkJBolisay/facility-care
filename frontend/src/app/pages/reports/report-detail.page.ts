@@ -38,6 +38,25 @@ interface Step {
     <ion-content class="ion-padding page">
       @if (report(); as r) {
         <div class="max">
+          <!-- Reporter: the repair is done, is it really fixed? -->
+          @if (r.user_id === auth.user()?.id && r.status === 'completed' && !r.confirmed_at) {
+            <div class="confirm-panel">
+              <ion-icon name="checkmark-done-outline" aria-hidden="true" />
+              <div class="confirm-text">
+                <strong>The repair is done. Is it fixed?</strong>
+                <span>Please check and let us know. If it is still broken, it goes back to the admin to fix again.</span>
+              </div>
+              <div class="confirm-actions">
+                <ion-button color="success" (click)="confirmFixed()">
+                  <ion-icon slot="start" name="checkmark-circle-outline" /> Fixed
+                </ion-button>
+                <ion-button fill="outline" color="danger" (click)="reopen()">
+                  <ion-icon slot="start" name="refresh-outline" /> Still not fixed
+                </ion-button>
+              </div>
+            </div>
+          }
+
           @if (r.photo_url) {
             <a [href]="r.photo_url" target="_blank"><img class="hero-photo" [src]="r.photo_url" alt="Reported issue" /></a>
           }
@@ -46,6 +65,12 @@ interface Step {
             <h2 class="mt-0">{{ r.title }}</h2>
             <div class="pills">
               <app-badge kind="status" [value]="r.status" />
+              @if (r.reopen_count) {
+                <ion-badge color="danger" class="pill">Reopened{{ r.reopen_count > 1 ? ' ×' + r.reopen_count : '' }}</ion-badge>
+              }
+              @if (r.confirmed_at) {
+                <ion-badge color="success" class="pill">Confirmed fixed</ion-badge>
+              }
               <app-badge kind="priority" [value]="r.priority" />
               @if (r.severity) { <app-badge kind="severity" [value]="r.severity" /> }
               <ion-badge color="light" class="pill">{{ r.category | label: 'category' }}{{ r.category === 'others' && r.category_other ? ': ' + r.category_other : '' }}</ion-badge>
@@ -108,6 +133,33 @@ interface Step {
                 </div>
               }
             </div>
+
+            <!-- Other unfixed requests about the same item (or same room + category) -->
+            @if (r.possible_duplicates?.length) {
+              <div class="dup-panel" role="status">
+                <div class="dup-head">
+                  <ion-icon name="warning-outline" aria-hidden="true" />
+                  <strong>Possible duplicate</strong>
+                </div>
+                <p class="small">
+                  {{ r.equipment ? 'This equipment' : 'The same room and category' }} already has
+                  {{ r.possible_duplicates!.length === 1 ? 'an open request' : r.possible_duplicates!.length + ' open requests' }}:
+                </p>
+                @for (d of r.possible_duplicates; track d.id) {
+                  <div class="dup-row">
+                    <a [routerLink]="['/reports', d.id]">
+                      <strong>{{ d.reference }}</strong> · {{ d.title }}
+                      <span>{{ d.reporter?.name }} · {{ d.created_at | date: 'MMM d' }} · {{ d.status | label: 'status' }}</span>
+                    </a>
+                    @if (r.status === 'pending' || (r.status === 'approved' && !activeWo())) {
+                      <ion-button size="small" fill="outline" color="danger" (click)="rejectAsDuplicate(d.reference)">
+                        Reject as duplicate
+                      </ion-button>
+                    }
+                  </div>
+                }
+              </div>
+            }
 
             <div class="section-title">Review &amp; classification</div>
             <div class="panel">
@@ -229,8 +281,8 @@ interface Step {
             <div class="panel"><app-activity [items]="r.activities" /></div>
           }
 
-          <!-- Reporter: after the repair, report again if it is still broken -->
-          @if (!auth.isAdmin() && r.user_id === auth.user()?.id && (r.status === 'completed' || r.status === 'rejected')) {
+          <!-- Reporter: a rejected request, or a confirmed repair that broke again later, can be reported again -->
+          @if (!auth.isAdmin() && r.user_id === auth.user()?.id && (r.status === 'rejected' || (r.status === 'completed' && r.confirmed_at))) {
             <div class="panel ion-text-center">
               <p class="mt-0"><strong>{{ r.status === 'completed' ? 'Still not fixed?' : 'Still a problem?' }}</strong></p>
               <p class="small muted">Send a follow-up report. The details of this report will be filled in for you.</p>
@@ -279,9 +331,14 @@ export class ReportDetailPage {
     return 2;
   });
 
-  protected activeWo = computed<WorkOrder | null>(
-    () => this.report()?.work_orders?.find((w) => w.status !== 'cancelled') ?? null,
-  );
+  /** The open work order; once the report is completed, the one that finished it. A reopened report has none until reassigned. */
+  protected activeWo = computed<WorkOrder | null>(() => {
+    const r = this.report();
+    const list = r?.work_orders ?? [];
+    const open = list.find((w) => w.status === 'pending' || w.status === 'in_progress');
+    if (open) return open;
+    return r?.status === 'completed' ? (list.find((w) => w.status === 'completed') ?? null) : null;
+  });
 
   protected canDelete = computed(() => {
     const r = this.report();
@@ -304,6 +361,9 @@ export class ReportDetailPage {
       { label: 'Repair started', at: wo?.started_at ?? null, icon: 'construct-outline', color: 'primary' },
       { label: 'Completed', at: wo?.completed_at ?? null, icon: 'checkmark-circle-outline', color: 'success', note: wo?.remarks ?? undefined },
     );
+    if (r.confirmed_at) {
+      steps.push({ label: 'Confirmed fixed by reporter', at: r.confirmed_at, icon: 'checkmark-done-outline', color: 'success' });
+    }
     return steps;
   });
 
@@ -350,6 +410,38 @@ export class ReportDetailPage {
     if (r) {
       this.report.set(r);
       await this.ui.toast('Report rejected. The reporter has been notified.');
+      await this.nav.navigateBack('/tabs/reports');
+    }
+  }
+
+  /** Reporter: the repair worked. */
+  async confirmFixed(): Promise<void> {
+    const r = await this.ui.busy(() => this.api.post<Report>(`reports/${this.id()}/confirm`, {}));
+    if (r) {
+      this.report.set(r);
+      await this.ui.toast('Thanks for confirming!', 'success');
+    }
+  }
+
+  /** Reporter: still broken. It goes back to the admin to assign again. */
+  async reopen(): Promise<void> {
+    const reason = await this.ui.prompt('Still not fixed', 'What is still wrong? (e.g. still no power)', 'Send');
+    if (reason === null) return;
+    const r = await this.ui.busy(() => this.api.post<Report>(`reports/${this.id()}/reopen`, { reason }));
+    if (r) {
+      this.report.set(r);
+      await this.ui.toast('Sent back to the admin. We will fix it again.', 'success');
+    }
+  }
+
+  /** One click: reject this request because the same problem is already reported as `ref`. */
+  async rejectAsDuplicate(ref: string): Promise<void> {
+    const reason = `Duplicate of ${ref}. This problem is already reported and will be fixed under ${ref}.`;
+    if (!(await this.ui.confirm('Reject as duplicate', `The reporter will see: "${reason}"`, 'Reject', true))) return;
+    const r = await this.ui.busy(() => this.api.post<Report>(`reports/${this.id()}/reject`, { admin_remarks: reason }));
+    if (r) {
+      this.report.set(r);
+      await this.ui.toast('Rejected as duplicate. The reporter has been notified.');
       await this.nav.navigateBack('/tabs/reports');
     }
   }

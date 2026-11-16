@@ -124,6 +124,17 @@ const SEVERITY_CARDS = [
                     </select>
                     <ion-icon name="chevron-down-outline" class="rp-select-chev" />
                   </div>
+                  <!-- someone already reported this item and it is not fixed yet -->
+                  @if (alreadyReported(); as open) {
+                    <div class="rp-dup" role="status">
+                      <ion-icon name="warning-outline" aria-hidden="true" />
+                      <p>
+                        <strong>This item is already reported</strong>
+                        {{ open.reference }} · {{ label('status', open.status) }}. If it is the same problem, you don't need to report it
+                        again. If it is a different problem, you can still continue.
+                      </p>
+                    </div>
+                  }
                 }
 
                 <!-- on a laptop "Please specify" sits next to Category so the form still fits -->
@@ -330,6 +341,11 @@ export class ReportFormPage {
       return { facility_id: this.buildingId(), location_details: f.room_other.trim() };
     }
     return { facility_id: f.facility_id, location_details: f.location_details.trim() };
+  }
+
+  /** The unfixed request about the chosen equipment, if someone already reported it. */
+  protected alreadyReported() {
+    return this.equipment().find((x) => x.id === this.form.equipment_id)?.open_report ?? null;
   }
 
   protected equipmentName(): string | null {

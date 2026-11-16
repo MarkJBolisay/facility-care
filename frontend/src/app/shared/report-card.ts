@@ -43,6 +43,9 @@ export class StatusPillComponent {
         <span class="rp-card-loc">{{ place() }}</span>
         <span class="rp-card-date"><ion-icon name="calendar-outline" />{{ r.created_at | date: 'MMM d, y • h:mm a' }}</span>
         <app-status-pill [status]="r.status" />
+        @if (r.status === 'completed' && !r.confirmed_at) {
+          <span class="rp-pill rp-tone-warning"><ion-icon name="help-circle-outline" />Please confirm the fix</span>
+        }
       </div>
       <ion-icon name="chevron-forward-outline" class="rp-chev" />
     </a>

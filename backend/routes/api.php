@@ -47,6 +47,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/reports', [ReportController::class, 'store'])->middleware('role:student,faculty,staff,admin');
     Route::get('/reports/{report}', [ReportController::class, 'show']);
     Route::delete('/reports/{report}', [ReportController::class, 'destroy']);
+    // After the repair the reporter says it is fixed, or that it is still broken (reopens the request)
+    Route::post('/reports/{report}/confirm', [ReportController::class, 'confirm']);
+    Route::post('/reports/{report}/reopen', [ReportController::class, 'reopen']);
 
     // Work orders: maintenance sees/updates their own, admin all
     Route::get('/work-orders', [WorkOrderController::class, 'index'])->middleware('role:admin,maintenance');

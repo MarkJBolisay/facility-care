@@ -13,6 +13,7 @@ use App\Models\WorkOrderPhoto;
 use App\Services\Notifier;
 use App\Services\TechnicianMatcher;
 use App\Support\Uploads;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -92,13 +93,16 @@ class WorkOrderController extends Controller
         ]);
 
         $this->ensureMaintenance($data['assigned_to'] ?? null);
+        WorkOrder::assertDueDateNotPast($data['due_date'] ?? null);
 
         $report = isset($data['report_id']) ? Report::find($data['report_id']) : null;
 
         if ($report) {
-            if ($report->activeWorkOrder) {
+            // a finished work order does not block a new one (the reporter may have reopened the request)
+            $open = $report->workOrders()->whereIn('status', WorkOrder::ACTIVE_STATUSES)->latest()->first();
+            if ($open) {
                 throw ValidationException::withMessages([
-                    'report_id' => "This report already has work order {$report->activeWorkOrder->reference}.",
+                    'report_id' => "This report already has work order {$open->reference}.",
                 ]);
             }
             if ($report->status === 'completed') {
@@ -181,6 +185,7 @@ class WorkOrderController extends Controller
         $oldAssignee = $workOrder->assignee?->name;
 
         $this->ensureMaintenance($data['assigned_to'] ?? null);
+        WorkOrder::assertDueDateNotPast($data['due_date'] ?? null, $workOrder->due_date?->toDateString());
 
         $reassigned = array_key_exists('assigned_to', $data) && $data['assigned_to'] != $workOrder->assigned_to;
         if ($reassigned) {
@@ -278,6 +283,19 @@ class WorkOrderController extends Controller
         if ($workOrder->status === 'cancelled') {
             return response()->json(['message' => 'This work order was cancelled.'], 422);
         }
+        // Personnel may still correct the completion report, but only the admin can undo a finished repair.
+        if ($workOrder->status === 'completed' && $data['status'] !== 'completed' && ! $request->user()->isAdmin()) {
+            return response()->json(['message' => 'This repair is already completed. Ask the admin to reopen it.'], 422);
+        }
+
+        // The completion date must be a real moment of the repair: not in the future, not before it started.
+        $doneAt = $data['status'] === 'completed' && ! empty($data['completed_at']) ? Carbon::parse($data['completed_at']) : null;
+        if ($doneAt && $doneAt->gt(now()->addMinutes(5))) { // a few minutes of slack for a phone clock that runs fast
+            throw ValidationException::withMessages(['completed_at' => "Date completed can't be in the future."]);
+        }
+        if ($doneAt && $workOrder->started_at && $doneAt->lt($workOrder->started_at->copy()->startOfMinute())) {
+            throw ValidationException::withMessages(['completed_at' => "Date completed can't be before the repair started."]);
+        }
 
         $updates = ['status' => $data['status']];
 
@@ -285,8 +303,9 @@ class WorkOrderController extends Controller
             $updates['started_at'] = $workOrder->started_at ?? now();
             $updates['completed_at'] = null;
         } elseif ($data['status'] === 'completed') {
-            $updates['started_at'] = $workOrder->started_at ?? now();
-            $updates['completed_at'] = $data['completed_at'] ?? now();
+            $updates['completed_at'] = $doneAt ?? now();
+            // completed without pressing Start: it started no later than it was completed
+            $updates['started_at'] = $workOrder->started_at ?? $updates['completed_at']->copy()->min(now());
             $updates['actions_taken'] = $data['actions_taken'];
             $updates['remarks'] = $data['remarks'] ?? $workOrder->remarks;
             $updates['condition_after'] = $workOrder->equipment_id ? ($data['condition_after'] ?? 'operational') : null;
@@ -467,7 +486,8 @@ class WorkOrderController extends Controller
             default => 'approved',
         };
 
-        $report->update(['status' => $status]);
+        // a reporter's "it's fixed" only counts for a finished repair
+        $report->update(['status' => $status, ...($status !== 'completed' ? ['confirmed_at' => null] : [])]);
     }
 
     private function notifyAssignment(WorkOrder $wo, User $by): void

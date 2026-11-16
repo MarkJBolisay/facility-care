@@ -179,7 +179,7 @@ import { SHARED } from '../../shared/ui';
                         <ion-textarea label="Remarks" labelPlacement="stacked" [autoGrow]="true" rows="2" placeholder="Recommendations, follow-ups, notes" [(ngModel)]="completion.remarks" />
                       </ion-item>
                       <ion-item>
-                        <ion-input label="Date completed" labelPlacement="stacked" type="datetime-local" [(ngModel)]="completion.completed_at" />
+                        <ion-input label="Date completed" labelPlacement="stacked" type="datetime-local" [min]="completionMin()" [max]="completionMax()" [(ngModel)]="completion.completed_at" />
                       </ion-item>
                       @if (w.equipment) {
                         <ion-item>
@@ -228,7 +228,7 @@ import { SHARED } from '../../shared/ui';
                     <ion-textarea label="Remarks" labelPlacement="stacked" [autoGrow]="true" rows="2" placeholder="Recommendations, follow-ups, notes" [(ngModel)]="completion.remarks" />
                   </ion-item>
                   <ion-item>
-                    <ion-input label="Date completed" labelPlacement="stacked" type="datetime-local" [(ngModel)]="completion.completed_at" />
+                    <ion-input label="Date completed" labelPlacement="stacked" type="datetime-local" [min]="completionMin()" [max]="completionMax()" [(ngModel)]="completion.completed_at" />
                   </ion-item>
                   @if (w.equipment) {
                     <ion-item>
@@ -498,6 +498,15 @@ export class WorkOrderDetailPage {
     this.showComplete.set(true);
   }
 
+  /** Date completed range: from when the repair started up to now (same "YYYY-MM-DDTHH:mm" format as the input). */
+  protected completionMin(): string | null {
+    const started = this.wo()?.started_at;
+    return started ? toLocalInput(new Date(started)) : null;
+  }
+  protected completionMax(): string {
+    return toLocalInput(new Date());
+  }
+
   private resetCompletion(w: WorkOrder): void {
     this.completion = {
       actions_taken: w.actions_taken ?? '',
@@ -510,6 +519,16 @@ export class WorkOrderDetailPage {
   async submitCompletion(): Promise<void> {
     if (!this.completion.actions_taken.trim()) {
       await this.ui.toast('Please describe the actions taken.', 'warning');
+      return;
+    }
+    // the picker limits the range, but a typed date can still be outside it
+    const done = this.completion.completed_at;
+    if (done && done > this.completionMax()) {
+      await this.ui.toast("Date completed can't be in the future.", 'warning');
+      return;
+    }
+    if (done && this.completionMin() && done < this.completionMin()!) {
+      await this.ui.toast("Date completed can't be before the repair started.", 'warning');
       return;
     }
     const w = await this.ui.busy(() =>

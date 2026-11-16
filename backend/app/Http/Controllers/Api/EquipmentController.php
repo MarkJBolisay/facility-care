@@ -22,8 +22,12 @@ class EquipmentController extends Controller
     /** Search and filter: search, category, condition, facility_id (a building includes its rooms), department, maintenance. */
     public function index(Request $request)
     {
-        $query = Equipment::with('facility.parent')
-            ->withCount(['reports as open_requests_count' => fn ($q) => $q->whereIn('status', ['pending', 'approved', 'in_progress'])]);
+        $query = Equipment::with([
+            'facility.parent',
+            // only the reference and status, so reporters can see it is already reported without seeing who reported it
+            'openReport' => fn ($q) => $q->select('reports.id', 'reports.equipment_id', 'reports.reference', 'reports.status', 'reports.created_at'),
+        ])
+            ->withCount(['reports as open_requests_count' => fn ($q) => $q->whereIn('status', Report::OPEN_STATUSES)]);
 
         foreach (['category', 'condition', 'department', 'importance'] as $field) {
             if ($request->filled($field)) {
@@ -171,6 +175,8 @@ class EquipmentController extends Controller
             'due_date' => 'nullable|date',
             'priority' => ['nullable', Rule::in(Report::PRIORITIES)],
         ]);
+
+        WorkOrder::assertDueDateNotPast($data['due_date'] ?? null);
 
         $open = $equipment->workOrders()->where('type', 'preventive')->whereIn('status', WorkOrder::ACTIVE_STATUSES)->first();
         if ($open) {

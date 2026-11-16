@@ -81,7 +81,7 @@ import { SHARED } from '../../shared/ui';
                 </ion-select>
               </ion-item>
               <ion-item>
-                <ion-input label="Target completion date" labelPlacement="stacked" type="date" name="due" [(ngModel)]="form.due_date" />
+                <ion-input label="Target completion date" labelPlacement="stacked" type="date" name="due" [min]="minDue()" [(ngModel)]="form.due_date" />
               </ion-item>
               @if (id()) {
                 <ion-item>
@@ -207,13 +207,14 @@ export class WorkOrderFormPage {
       this.personnel.set(personnel);
 
       if (wo) {
+        this.savedDue = wo.due_date?.slice(0, 10) ?? '';
         Object.assign(this.form, {
           title: wo.title,
           description: wo.description ?? '',
           facility_id: wo.facility_id,
           category: wo.category,
           priority: wo.priority,
-          due_date: wo.due_date ?? '',
+          due_date: wo.due_date?.slice(0, 10) ?? '',
           assigned_to: wo.assigned_to,
           status: wo.status,
           report_id: wo.report_id,
@@ -265,9 +266,22 @@ export class WorkOrderFormPage {
     if (list) this.personnel.set(list);
   }
 
+  /** The target date already saved on this work order (may be overdue). */
+  private savedDue = '';
+  /** Earliest pickable target date: today, or the saved date if that is earlier. */
+  protected minDue(): string {
+    const today = todayLocal();
+    return this.savedDue && this.savedDue < today ? this.savedDue : today;
+  }
+
   async save(): Promise<void> {
     if (!this.form.title.trim()) {
       await this.ui.toast('Title is required.', 'warning');
+      return;
+    }
+    // a new target date can't be in the past (an overdue date that is already saved may stay)
+    if (this.form.due_date && this.form.due_date !== this.savedDue && this.form.due_date < todayLocal()) {
+      await this.ui.toast("Target date can't be in the past.", 'warning');
       return;
     }
     this.saving.set(true);
@@ -291,4 +305,11 @@ export class WorkOrderFormPage {
       this.saving.set(false);
     }
   }
+}
+
+/** Today as YYYY-MM-DD in the phone's own timezone. */
+function todayLocal(): string {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }

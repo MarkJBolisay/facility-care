@@ -135,9 +135,33 @@ class ReportController extends Controller
         $report = $this->load($report);
         if ($request->user()->isAdmin()) {
             $report->priority_assessment = Priority::assess($report);
+            $report->possible_duplicates = $this->possibleDuplicates($report);
         }
 
         return $report;
+    }
+
+    /**
+     * Other unfixed requests that look like the same problem:
+     * the same equipment, or (when no equipment was picked) the same room and category.
+     */
+    private function possibleDuplicates(Report $report)
+    {
+        if (! in_array($report->status, Report::OPEN_STATUSES)) {
+            return [];
+        }
+
+        $query = Report::whereKeyNot($report->id)->whereIn('status', Report::OPEN_STATUSES);
+        if ($report->equipment_id) {
+            $query->where('equipment_id', $report->equipment_id);
+        } elseif ($report->facility_id && $report->category) {
+            $query->whereNull('equipment_id')->where('facility_id', $report->facility_id)->where('category', $report->category);
+        } else {
+            return [];
+        }
+
+        return $query->with('reporter:id,name')->oldest()->limit(5)
+            ->get(['id', 'reference', 'title', 'status', 'user_id', 'created_at']);
     }
 
     /** Admin: categorize, set priority, fix the facility. */
@@ -246,8 +270,20 @@ class ReportController extends Controller
 
         ActivityLog::record('rejected', "Request rejected: {$data['admin_remarks']}", $request->user(), $report, to: 'rejected');
 
-        // Cancel any open work order for this report.
-        $report->workOrders()->whereIn('status', ['pending'])->update(['status' => 'cancelled']);
+        // Cancel any open work order for this report, and tell the technician it was cancelled.
+        foreach ($report->workOrders()->where('status', 'pending')->get() as $wo) {
+            $wo->update(['status' => 'cancelled']);
+            ActivityLog::record('status_changed', 'Work order cancelled because the request was rejected.',
+                $request->user(), $report, $wo, from: 'pending', to: 'cancelled');
+            if ($wo->assigned_to) {
+                Notifier::send($wo->assigned_to, 'Work order cancelled',
+                    "{$wo->reference} \"{$wo->title}\" was cancelled because the request was rejected.",
+                    'assignment', null, $wo, $request->user());
+            }
+        }
+
+        // The report flagged its equipment "Needs Repair"; undo that if nothing else is open for it.
+        $report->equipment?->releaseRepairFlag($report, $request->user(), 'rejected');
 
         Notifier::send(
             $report->user_id,
@@ -262,6 +298,65 @@ class ReportController extends Controller
         return $this->load($report->fresh());
     }
 
+    /** Reporter: the repair worked. */
+    public function confirm(Request $request, Report $report)
+    {
+        $this->ensureReporterCanAnswer($request, $report);
+
+        $report->update(['confirmed_at' => now()]);
+        ActivityLog::record('confirmed', "{$request->user()->name} confirmed the problem is fixed.", $request->user(), $report);
+
+        if ($tech = $this->lastRepair($report)?->assigned_to) {
+            Notifier::send($tech, 'Repair confirmed',
+                "The reporter confirmed {$report->reference} \"{$report->title}\" is fixed. Thank you!",
+                'status', $report, null, $request->user());
+        }
+
+        return $this->load($report->fresh());
+    }
+
+    /** Reporter: still broken after the repair. The request goes back to the admin to assign again. */
+    public function reopen(Request $request, Report $report)
+    {
+        $data = $request->validate(['reason' => 'required|string|max:1000'], [
+            'reason.required' => 'Tell us what is still wrong.',
+        ]);
+        $this->ensureReporterCanAnswer($request, $report);
+
+        $report->update(['status' => 'approved', 'confirmed_at' => null, 'reopen_count' => $report->reopen_count + 1]);
+        ActivityLog::record('reopened', "Reopened by {$request->user()->name}: still not fixed. \"{$data['reason']}\"",
+            $request->user(), $report, from: 'completed', to: 'approved');
+
+        $equipment = $report->equipment;
+        if ($equipment && $equipment->condition === 'operational') {
+            $equipment->update(['condition' => 'needs_repair']);
+            ActivityLog::record('condition_changed', "{$equipment->code} marked as Needs Repair because {$report->reference} was reopened.",
+                $request->user(), $report, equipment: $equipment, from: 'operational', to: 'needs_repair');
+        }
+
+        $message = "{$report->reference} \"{$report->title}\" is still not fixed: {$data['reason']}";
+        Notifier::send(Notifier::admins(), 'Request reopened', "$message Please assign it again.", 'report', $report, null, $request->user());
+        if ($tech = $this->lastRepair($report)?->assigned_to) {
+            Notifier::send($tech, 'Repair reopened', $message, 'status', $report, null, $request->user());
+        }
+
+        return $this->load($report->fresh());
+    }
+
+    /** Only the person who reported it can answer, and only once the repair is done and not yet confirmed. */
+    private function ensureReporterCanAnswer(Request $request, Report $report): void
+    {
+        abort_unless((int) $report->user_id === (int) $request->user()->id, 403, 'Only the person who reported this can answer.');
+        if ($report->status !== 'completed' || $report->confirmed_at) {
+            abort(422, $report->confirmed_at ? 'You already confirmed this repair.' : 'This request is not completed yet.');
+        }
+    }
+
+    private function lastRepair(Report $report): ?\App\Models\WorkOrder
+    {
+        return $report->workOrders()->where('status', 'completed')->latest('completed_at')->first();
+    }
+
     public function destroy(Request $request, Report $report)
     {
         $user = $request->user();
@@ -271,8 +366,14 @@ class ReportController extends Controller
             abort(403, 'You cannot delete this report.');
         }
 
+        $equipment = $report->equipment;
+        $why = (int) $report->user_id === (int) $user->id ? 'withdrawn' : 'deleted';
+
         Uploads::delete($report->photo);
         $report->delete();
+
+        // The report flagged its equipment "Needs Repair"; undo that if nothing else is open for it.
+        $equipment?->releaseRepairFlag($report, $user, $why);
 
         return response()->noContent();
     }

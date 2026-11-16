@@ -124,6 +124,9 @@ import { SHARED, completeRefresh } from '../../shared/ui';
                 }
                 <div class="pills">
                   <app-badge kind="status" [value]="r.status" />
+                  @if (r.reopen_count && r.status !== 'completed') {
+                    <ion-badge color="danger" class="pill">Reopened</ion-badge>
+                  }
                   @if (r.priority) {
                     <app-badge kind="priority" [value]="r.priority" />
                   }

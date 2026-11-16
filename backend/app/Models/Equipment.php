@@ -6,6 +6,7 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 /**
  * A piece of equipment (computer, aircon, projector, fire extinguisher, ...).
@@ -100,6 +101,28 @@ class Equipment extends Model
         return self::REPAIR_CATEGORY[$this->category] ?? 'others';
     }
 
+    /**
+     * A report that marked this equipment "Needs Repair" was withdrawn or rejected.
+     * Put it back to Operational, unless another open report or work order still needs it repaired.
+     */
+    public function releaseRepairFlag(Report $closed, ?User $by, string $why): void
+    {
+        if ($this->condition !== 'needs_repair') {
+            return;
+        }
+
+        $stillOpen = $this->reports()->whereKeyNot($closed->id)
+            ->whereIn('status', Report::OPEN_STATUSES)->exists()
+            || $this->workOrders()->whereIn('status', WorkOrder::ACTIVE_STATUSES)->exists();
+        if ($stillOpen) {
+            return;
+        }
+
+        $this->update(['condition' => 'operational']);
+        ActivityLog::record('condition_changed', "{$this->code} is back to Operational because {$closed->reference} was $why.",
+            $by, equipment: $this, from: 'needs_repair', to: 'operational');
+    }
+
     public function facility(): BelongsTo
     {
         return $this->belongsTo(Facility::class);
@@ -108,6 +131,12 @@ class Equipment extends Model
     public function reports(): HasMany
     {
         return $this->hasMany(Report::class);
+    }
+
+    /** The newest request about this equipment that is not fixed yet (shown to reporters to avoid duplicates). */
+    public function openReport(): HasOne
+    {
+        return $this->hasOne(Report::class)->ofMany(['id' => 'max'], fn ($q) => $q->whereIn('status', Report::OPEN_STATUSES));
     }
 
     public function workOrders(): HasMany

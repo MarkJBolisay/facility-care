@@ -255,6 +255,14 @@ ion-content.rp-sheeted { --background: var(--rp-head) top / 100% 40px no-repeat,
 .rp-select-icon { position: absolute; left: 14px; top: 50%; transform: translateY(-50%); font-size: 18px; color: var(--rp-blue); pointer-events: none; }
 .rp-select.disabled { opacity: 0.6; }
 .rp-select.disabled select { cursor: not-allowed; }
+/* "already reported" note under the equipment picker */
+.rp-dup {
+  display: flex; gap: 10px; align-items: flex-start; margin: -4px 0 14px; padding: 10px 12px; border-radius: 12px;
+  background: rgba(240, 140, 0, 0.1); border: 1px solid rgba(240, 140, 0, 0.35); color: var(--rp-ink);
+}
+.rp-dup > ion-icon { font-size: 20px; flex-shrink: 0; color: var(--rp-warning); }
+.rp-dup p { margin: 0; font-size: 0.8rem; line-height: 1.4; color: var(--rp-text); }
+.rp-dup strong { display: block; font-size: 0.84rem; color: var(--rp-ink); }
 .rp-textarea { height: 100px; padding: 12px 14px; resize: none; line-height: 1.45; }
 .rp-count { margin: 6px 2px 0; text-align: right; font-size: 0.78rem; color: var(--rp-text); }
 

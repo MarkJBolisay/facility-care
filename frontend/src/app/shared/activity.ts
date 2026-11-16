@@ -13,6 +13,8 @@ const ICONS: Record<string, { icon: string; tone: string }> = {
   assigned: { icon: 'person-add-outline', tone: 'tertiary' },
   status_changed: { icon: 'construct-outline', tone: 'primary' },
   completed: { icon: 'checkmark-done-outline', tone: 'success' },
+  confirmed: { icon: 'checkmark-done-outline', tone: 'success' },
+  reopened: { icon: 'refresh-outline', tone: 'danger' },
   condition_changed: { icon: 'pulse-outline', tone: 'warning' },
   priority_changed: { icon: 'flag-outline', tone: 'warning' },
   category_changed: { icon: 'pricetag-outline', tone: 'medium' },

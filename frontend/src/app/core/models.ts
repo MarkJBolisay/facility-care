@@ -42,6 +42,8 @@ export interface Equipment {
   maintenance_state: 'none' | 'scheduled' | 'due_soon' | 'overdue';
   notes: string | null;
   open_requests_count?: number;
+  /** newest unfixed request about this item (reference and status only) */
+  open_report?: { id: number; reference: string; status: string; created_at: string } | null;
   open_work_order?: WorkOrder | null;
   created_at: string;
 }
@@ -96,6 +98,8 @@ export interface Report {
   severity: string | null;
   priority_score?: number;
   priority_assessment?: PriorityAssessment;
+  /** admin only: other unfixed requests about the same item or room + category */
+  possible_duplicates?: { id: number; reference: string; title: string; status: string; created_at: string; reporter?: { id: number; name: string } | null }[];
   activities?: ActivityLog[];
   location_details: string | null;
   title: string;
@@ -110,6 +114,8 @@ export interface Report {
   reporter?: User;
   reviewer?: User | null;
   reviewed_at: string | null;
+  confirmed_at?: string | null;
+  reopen_count?: number;
   work_orders?: WorkOrder[];
   active_work_order?: WorkOrder | null;
   created_at: string;
