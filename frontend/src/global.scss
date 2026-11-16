@@ -499,6 +499,13 @@ ion-toggle { white-space: normal; }
   .confirm-actions ion-button { flex: 1; }
 }
 
+/* Edge/IE add their own "show password" eye and clear (x) button to inputs.
+   The app has its own eye toggle, so hide the browser's to show only one. */
+input::-ms-reveal,
+input::-ms-clear {
+  display: none;
+}
+
 /* "Possible duplicate" box (request review) */
 .dup-panel { margin: 12px 0 4px; padding: 12px 14px; border-radius: 14px; background: rgba(var(--ion-color-warning-rgb), 0.1); border: 1px solid rgba(var(--ion-color-warning-rgb), 0.4); }
 .dup-head { display: flex; align-items: center; gap: 8px; }
