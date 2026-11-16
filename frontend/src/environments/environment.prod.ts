@@ -2,5 +2,5 @@
 // Point this to the address where the Laravel backend is reachable from the phone.
 export const environment = {
   production: true,
-  apiUrl: 'http://192.168.100.148:8000/api',
+  apiUrl: 'http://192.168.100.115:8000/api',
 };

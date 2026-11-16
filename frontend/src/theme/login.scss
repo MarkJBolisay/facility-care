@@ -540,3 +540,13 @@ ion-content.lx { --background: #9cc3ef; }
   .lxr .rg-rules { margin: calc(0.4 * var(--v)) 0 calc(1.6 * var(--v)); }
   .lxr .lx-foot { margin-top: calc(1.6 * var(--v)); }
 }
+
+/* "Server: 192.168.x.x:8000 · Change" link under the login / sign-up card (phone app only) */
+.lx-server {
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  margin: 14px auto 0; padding: 6px 12px;
+  border: 0; border-radius: 999px; background: var(--lg-field);
+  color: var(--lg-text); font: inherit; font-size: 0.8rem; cursor: pointer;
+}
+.lx-server ion-icon { font-size: 15px; }
+.lx-server span { color: var(--lg-blue); font-weight: 700; }

@@ -1,9 +1,14 @@
+import { HttpClient } from '@angular/common/http';
+import { Capacitor } from '@capacitor/core';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
-import { AlertController } from '@ionic/angular';
+import { AlertController, LoadingController } from '@ionic/angular';
 import { errorMessage } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
+import { apiHost } from '../../core/server';
+import { openServerDialog } from '../../core/server-dialog';
+
 import { IONIC } from '../../shared/ionic';
 
 /**
@@ -98,6 +103,11 @@ import { IONIC } from '../../shared/ionic';
           </form>
 
           <p class="lx-foot">Don't have an account? <a routerLink="/register">Sign up here</a></p>
+          @if (showServer) {
+            <button type="button" class="lx-server" (click)="changeServer()">
+              <ion-icon name="server-outline" aria-hidden="true" /> Server: {{ serverHost() }} <span>Change</span>
+            </button>
+          }
         </div>
       </div>
     </ion-content>
@@ -115,6 +125,20 @@ export class LoginPage {
   protected showPassword = signal(false);
   protected loading = signal(false);
   protected error = signal('');
+  private http = inject(HttpClient);
+  private loadingCtrl = inject(LoadingController);
+  /** "Server" link: only in the phone app (the browser version runs next to the backend). */
+  protected readonly showServer = Capacitor.isNativePlatform();
+  protected serverHost = signal(apiHost());
+
+  /** Change the backend address (the laptop's IP) without rebuilding the APK. */
+  async changeServer(): Promise<void> {
+    if (await openServerDialog(this.alertCtrl, this.loadingCtrl, this.http)) {
+      this.serverHost.set(apiHost());
+      this.error.set('');
+    }
+  }
+
 
   async forgot(): Promise<void> {
     await this.message(

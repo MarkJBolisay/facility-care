@@ -1,8 +1,14 @@
+import { HttpClient } from '@angular/common/http';
+import { Capacitor } from '@capacitor/core';
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
+import { AlertController, LoadingController } from '@ionic/angular';
 import { errorMessage } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
+import { apiHost } from '../../core/server';
+import { openServerDialog } from '../../core/server-dialog';
+
 import { IONIC } from '../../shared/ionic';
 
 type Role = 'student' | 'faculty' | 'staff';
@@ -180,6 +186,11 @@ const STUDENT_ID = /^PPY\d{4}-\d{5}$/;
           </form>
 
           <p class="lx-foot">Already have an account? <a routerLink="/login">Log in here</a></p>
+          @if (showServer) {
+            <button type="button" class="lx-server" (click)="changeServer()">
+              <ion-icon name="server-outline" aria-hidden="true" /> Server: {{ serverHost() }} <span>Change</span>
+            </button>
+          }
         </div>
       </div>
     </ion-content>
@@ -188,6 +199,7 @@ const STUDENT_ID = /^PPY\d{4}-\d{5}$/;
 export class RegisterPage {
   private auth = inject(AuthService);
   private router = inject(Router);
+  private alertCtrl = inject(AlertController);
 
   protected readonly roles: { value: Role; label: string; icon: string }[] = [
     { value: 'student', label: 'Student', icon: 'school-outline' },
@@ -208,6 +220,20 @@ export class RegisterPage {
   protected showConfirm = signal(false);
   protected loading = signal(false);
   protected error = signal('');
+  private http = inject(HttpClient);
+  private loadingCtrl = inject(LoadingController);
+  /** "Server" link: only in the phone app (the browser version runs next to the backend). */
+  protected readonly showServer = Capacitor.isNativePlatform();
+  protected serverHost = signal(apiHost());
+
+  /** Change the backend address (the laptop's IP) without rebuilding the APK. */
+  async changeServer(): Promise<void> {
+    if (await openServerDialog(this.alertCtrl, this.loadingCtrl, this.http)) {
+      this.serverHost.set(apiHost());
+      this.error.set('');
+    }
+  }
+
 
   /** Student IDs are typed in capitals: "ppy2023-00249" becomes "PPY2023-00249". */
   protected setId(value: string): void {

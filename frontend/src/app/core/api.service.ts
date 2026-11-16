@@ -1,7 +1,7 @@
 import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
-import { environment } from '../../environments/environment';
+import { apiBase, apiHost } from './server';
 
 type Params = Record<string, string | number | boolean | null | undefined>;
 
@@ -9,7 +9,10 @@ type Params = Record<string, string | number | boolean | null | undefined>;
 @Injectable({ providedIn: 'root' })
 export class ApiService {
   private http = inject(HttpClient);
-  readonly base = environment.apiUrl;
+  /** Current API address (can be changed in the app, see server.ts). */
+  get base(): string {
+    return apiBase();
+  }
 
   get<T>(path: string, params: Params = {}): Promise<T> {
     return firstValueFrom(this.http.get<T>(this.url(path), { params: this.params(params) }));
@@ -57,7 +60,9 @@ export class ApiService {
 /** Turn a Laravel error response into one readable sentence. */
 export function errorMessage(err: unknown): string {
   if (err instanceof HttpErrorResponse) {
-    if (err.status === 0) return 'Cannot reach the server. Check your connection and the API address.';
+    if (err.status === 0) {
+      return `Cannot reach the server at ${apiHost()}. Make sure the backend is running and your phone is on the same Wi-Fi. You can change the server address on the login screen.`;
+    }
     const body = err.error as { message?: string; errors?: Record<string, string[]> } | null;
     if (body?.errors) {
       const first = Object.values(body.errors)[0];
