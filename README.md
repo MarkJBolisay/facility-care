@@ -41,29 +41,22 @@ cd frontend
 npm start          # or: ionic serve
 ```
 
-### Demo accounts (password: `password`)
+### Starting accounts (password: `password`)
 
 | Role | Email |
 |---|---|
 | Administrator | adminfacilitycare@gmail.com |
 | Technician | julietapleras@gmail.com (Julie Tapleras, electrical) / oliversarmiento@gmail.com (Oliver Sarmiento, plumbing) |
-| Student | student@facilitycare.test, ana@facilitycare.test |
-| Faculty | faculty@facilitycare.test, maria@facilitycare.test |
-| Staff | staff@facilitycare.test |
 
-To reset the database to the demo data:
+Students, faculty and staff create their own accounts on the sign-up screen.
+There are no buildings, rooms or equipment at the start: the admin adds them in the app
+(Facilities, then Equipment).
+
+To start over with an empty database (this deletes everything, including real reports and users):
 
 ```bash
 cd backend
 php artisan migrate:fresh --seed
-```
-
-To add only the equipment module's sample data to an existing database:
-
-```bash
-cd backend
-php artisan migrate
-php artisan db:seed --class=EquipmentSeeder
 ```
 
 ### Reminders (overdue tasks, preventive maintenance)
