@@ -542,3 +542,148 @@ ion-tab-bar.rp-tabbar ion-tab-button.tab-selected::after {
   .rp-tab-add { width: 54px; height: 54px; margin-top: -20px; }
 }
 
+
+/* ==========================================================================
+   Report an Issue: richer header, titled steps, cards (design from the mockups)
+   ========================================================================== */
+.rp-head-rich { position: relative; overflow: hidden; padding-bottom: 20px; }
+.rp-head-rich .rp-head-in { position: relative; z-index: 1; }
+.rp-head-art { position: absolute; right: 0; bottom: 0; height: 100%; width: auto; max-width: 48%; pointer-events: none; }
+.rp-head-icon {
+  display: grid; place-items: center; width: 46px; height: 46px; flex-shrink: 0; border-radius: 13px;
+  background: rgba(255, 255, 255, 0.16); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+.rp-head-icon ion-icon { font-size: 25px; }
+.rp-head-text { min-width: 0; }
+.rp-head-text h1 { line-height: 1.15; }
+.rp-head-text p { margin: 3px 0 0; font-size: 0.86rem; opacity: 0.92; }
+
+.rp-wizard .rp-step-dot { width: 36px; height: 36px; font-size: 1rem; }
+.rp-wizard .rp-steps li + li::before { top: 17px; }
+.rp-wizard .rp-steps em { font-size: 0.9rem; font-weight: 600; color: var(--rp-ink); }
+.rp-wizard .rp-steps li:not(.now):not(.done) em { color: var(--rp-text); }
+.rp-wizard .rp-steps li.now em { color: var(--rp-blue); font-weight: 800; }
+
+/* step title: icon box + heading + one line */
+.rp-title { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+.rp-title-icon {
+  display: grid; place-items: center; width: 52px; height: 52px; flex-shrink: 0; border-radius: 14px;
+  background: rgba(21, 101, 240, 0.1); color: var(--rp-blue);
+}
+.rp-title-icon ion-icon { font-size: 27px; }
+.rp-title .rp-h { margin: 0; font-size: 1.4rem; }
+.rp-title .rp-p { margin: 2px 0 0; font-size: 0.88rem; }
+
+/* step 1 sits in a white card */
+.rp-sheet { padding: 18px 16px; border-radius: 20px; background: var(--rp-card); border: 1px solid var(--rp-line); box-shadow: var(--rp-shadow); }
+.rp-wizard .rp-label { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; }
+.rp-wizard .rp-label > ion-icon { flex-shrink: 0; font-size: 21px; color: var(--rp-blue); }
+.rp-count b { color: var(--rp-ink); }
+.rp-sev button { padding: 14px 6px 12px; gap: 3px; }
+.rp-sev button > ion-icon { font-size: 30px; }
+.rp-sev strong { font-size: 1rem; }
+.rp-sev small { font-size: 0.74rem; text-align: center; line-height: 1.25; }
+
+/* step 2: empty box with art and two buttons, "Photo Options" card */
+.rp-drop { gap: 4px; min-height: 280px; border-radius: 18px; border-color: rgba(21, 101, 240, 0.55); background: rgba(21, 101, 240, 0.04); text-align: center; }
+.rp-drop-art { width: 132px; height: auto; margin-bottom: 8px; }
+.rp-drop > strong { font-size: 1.12rem; font-weight: 800; color: var(--rp-ink); }
+.rp-drop > span { font-size: 0.95rem; color: var(--rp-text); }
+.rp-drop-btns { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin: 16px 0 12px; }
+.rp-drop-btn {
+  display: inline-flex; align-items: center; gap: 9px; height: 46px; padding: 0 22px; border-radius: 12px; cursor: pointer;
+  border: 1px solid var(--rp-line); background: var(--rp-card); color: var(--rp-ink); font-size: 0.95rem; font-weight: 700;
+  box-shadow: var(--rp-shadow);
+}
+.rp-drop .rp-drop-btn ion-icon { font-size: 21px; color: var(--rp-blue); }
+.rp-drop-btn.primary { border: 0; background: #1250c4; color: #fff; box-shadow: 0 8px 18px rgba(18, 80, 196, 0.3); }
+.rp-drop .rp-drop-btn.primary ion-icon { color: #fff; }
+.rp-drop > small { font-size: 0.8rem; color: var(--rp-text); }
+.rp-drop > small i { margin: 0 10px; font-style: normal; opacity: 0.6; }
+.rp-drop-wrap > .rp-drop.has-photo { min-height: 280px; }
+
+.rp-opts { padding: 16px; border-radius: 18px; background: var(--rp-card); border: 1px solid var(--rp-line); box-shadow: var(--rp-shadow); }
+.rp-opts h3 { margin: 0 0 12px; font-size: 1.1rem; font-weight: 800; color: var(--rp-ink); }
+.rp-opt {
+  display: flex; align-items: center; gap: 14px; width: 100%; margin: 0 0 10px; padding: 11px 12px; border-radius: 14px; cursor: pointer;
+  border: 1px solid var(--rp-line); background: rgba(21, 101, 240, 0.03); color: var(--rp-ink); text-align: left;
+}
+.rp-opt:last-child { margin-bottom: 0; }
+.rp-opt:hover:not(:disabled) { background: rgba(21, 101, 240, 0.07); }
+.rp-opt:disabled { opacity: 0.5; cursor: default; }
+.rp-opt-icon { display: grid; place-items: center; width: 46px; height: 46px; flex-shrink: 0; border-radius: 12px; background: rgba(21, 101, 240, 0.1); color: var(--rp-blue); }
+.rp-opt-icon ion-icon { font-size: 25px; }
+.rp-opt-danger .rp-opt-icon { background: rgba(229, 56, 59, 0.1); color: var(--rp-danger); }
+.rp-opt-text { display: flex; flex: 1; flex-direction: column; min-width: 0; }
+.rp-opt-text strong { font-size: 1rem; font-weight: 800; }
+.rp-opt-text small { font-size: 0.82rem; color: var(--rp-text); }
+.rp-opt-chev { font-size: 20px; color: var(--rp-ink); }
+
+/* step 3: one card, details + photo, each with a tinted header bar */
+.rp-review { display: flex; flex-direction: column; gap: 14px; padding: 14px; border-radius: 20px; }
+.rp-rcard-h {
+  display: flex; align-items: center; gap: 10px; margin: 0 0 4px; padding: 10px 14px; border-radius: 12px;
+  background: rgba(21, 101, 240, 0.08); font-size: 1.05rem; font-weight: 800; color: var(--rp-ink);
+}
+.rp-rcard-h ion-icon { font-size: 23px; color: var(--rp-blue); }
+.rp-review .rp-row { padding: 11px 4px; }
+.rp-review .rp-row > ion-icon { font-size: 23px; color: var(--rp-blue); }
+.rp-review .rp-row span { font-size: 0.84rem; color: var(--rp-text); }
+.rp-review .rp-row strong { font-size: 1rem; }
+.rp-sev-tag { gap: 7px; padding: 3px 12px; font-size: 0.86rem; }
+.rp-dot { width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
+.rp-rcard-photo img { display: block; width: 100%; height: 200px; margin-top: 8px; border-radius: 14px; object-fit: cover; }
+.rp-nophoto {
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; height: 160px; margin-top: 8px;
+  border: 2px dashed var(--rp-line); border-radius: 14px; color: var(--rp-text); font-size: 0.9rem;
+}
+.rp-nophoto ion-icon { font-size: 32px; }
+
+.rp-btn-ghost { box-shadow: var(--rp-shadow); }
+
+@media (max-width: 599px) {
+  .rp-head-text p { font-size: 0.78rem; }
+  .rp-head-icon { width: 40px; height: 40px; }
+  .rp-head-art { display: none; }
+  /* the box already has Take Photo / Choose from Gallery, and the photo has its own remove button */
+  .rp-opts { display: none; }
+  .rp-title-icon { width: 46px; height: 46px; }
+  .rp-title .rp-h { font-size: 1.25rem; }
+  .rp-drop { padding: 22px 14px; }
+  .rp-drop-btn { flex: 1 1 100%; justify-content: center; }
+}
+
+@media (min-width: 900px) {
+  .rp-wizard > * { max-width: 1180px; }
+  .rp-wizard .rp-steps { max-width: 640px !important; margin-bottom: 14px; }
+  .rp-sheet { padding: 20px 26px 18px; }
+  .rp-form { gap: 0 28px; }
+  .rp-form > .rp-form-col:last-child { padding-left: 28px; border-left: 1px solid var(--rp-line); }
+  .rp-input, .rp-select select { height: 44px; }
+  .rp-textarea { height: 120px; }
+
+  .rp-photo { grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr); gap: 26px; align-items: stretch; }
+  .rp-drop, .rp-drop-wrap > .rp-drop.has-photo { min-height: 330px; }
+
+  .rp-review { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 0 26px; padding: 18px 22px; }
+  .rp-review-rows .rp-row:last-child { border-bottom: 0; }
+  .rp-rcard-photo { padding-left: 26px; border-left: 1px solid var(--rp-line); }
+  .rp-rcard-photo img { height: 230px; }
+
+  /* same width as the content above (1180px + the 32px page padding on each side) */
+  .rp-foot-in { max-width: 1244px; justify-content: space-between; }
+  .rp-btn, .rp-btn-wide { flex: 0 0 200px; }
+}
+
+@media (min-width: 900px) and (max-height: 700px) {
+  .rp-head-icon { width: 40px; height: 40px; }
+  .rp-title { margin-bottom: 10px; }
+  .rp-title-icon { width: 44px; height: 44px; }
+  .rp-title .rp-h { font-size: 1.2rem; }
+  .rp-sheet { padding: 14px 22px; }
+  .rp-wizard .rp-step-dot { width: 30px; height: 30px; }
+  .rp-wizard .rp-steps li + li::before { top: 14px; }
+  .rp-drop, .rp-drop-wrap > .rp-drop.has-photo { min-height: 250px; }
+  .rp-drop-art { width: 100px; }
+  .rp-rcard-photo img { height: 170px; }
+}
