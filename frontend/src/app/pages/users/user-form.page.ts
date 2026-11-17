@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -159,8 +160,28 @@ export class UserFormPage {
   }
 
   async remove(): Promise<void> {
-    if (!(await this.ui.confirm('Delete user', 'Their reports will also be deleted. Consider deactivating instead.', 'Delete', true))) return;
-    const ok = await this.ui.busy(() => this.api.delete(`users/${this.id()}`).then(() => true));
-    if (ok) await this.router.navigateByUrl('/users', { replaceUrl: true });
+    const sure = await this.ui.confirm(
+      'Delete user',
+      'This permanently deletes the account. An account with reports or work orders can only be deactivated.',
+      'Delete',
+      true,
+    );
+    if (!sure) return;
+    try {
+      await this.api.delete(`users/${this.id()}`);
+      await this.ui.toast('User deleted.', 'success');
+      await this.router.navigateByUrl('/users', { replaceUrl: true });
+    } catch (err) {
+      // the account has history: offer to deactivate it instead
+      const body = err instanceof HttpErrorResponse ? err.error : null;
+      if (err instanceof HttpErrorResponse && err.status === 422 && body?.can_deactivate) {
+        if (await this.ui.confirm("Can't delete this account", body.message, 'Deactivate')) {
+          this.form.is_active = false;
+          await this.save();
+        }
+        return;
+      }
+      await this.ui.error(err);
+    }
   }
 }

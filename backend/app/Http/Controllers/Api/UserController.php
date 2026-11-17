@@ -79,9 +79,27 @@ class UserController extends Controller
         return $user;
     }
 
+    /**
+     * Only an account with no history can be deleted (e.g. one made by mistake).
+     * Deleting would also delete the person's reports, and leave their work orders without a technician.
+     */
     public function destroy(Request $request, User $user)
     {
         $this->ensureManaged($user);
+
+        $reports = $user->reports()->count();
+        $workOrders = $user->assignedWorkOrders()->count();
+        if ($reports || $workOrders) {
+            $has = collect([
+                $reports ? $reports.' '.str('report')->plural($reports) : null,
+                $workOrders ? $workOrders.' '.str('work order')->plural($workOrders) : null,
+            ])->filter()->implode(' and ');
+
+            return response()->json([
+                'message' => "This account has $has. Deactivate it instead so its history is kept.",
+                'can_deactivate' => true,
+            ], 422);
+        }
 
         $user->tokens()->delete();
         $user->delete();
