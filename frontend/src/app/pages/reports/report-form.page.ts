@@ -273,24 +273,28 @@ const SEVERITY_CARDS = [
               <section class="rp-rcard">
                 <h3 class="rp-rcard-h"><ion-icon name="information-circle-outline" />Report Details</h3>
                 <div class="rp-review-rows">
-                  <div class="rp-row"><ion-icon name="build-outline" /><div><span>Problem</span><strong>{{ form.title }}</strong></div></div>
+                  <!-- problem across the top, then pairs, then notes across the bottom -->
+                  <div class="rp-row rp-row-wide rp-row-main"><ion-icon name="build-outline" /><div><span>Problem</span><strong>{{ form.title }}</strong></div></div>
                   <div class="rp-row"><ion-icon name="business-outline" /><div><span>Building</span><strong>{{ buildingName() }}</strong></div></div>
                   <div class="rp-row"><ion-icon name="location-outline" /><div><span>Room / Area</span><strong>{{ roomName() }}</strong></div></div>
                   <div class="rp-row"><ion-icon name="layers-outline" /><div><span>Category</span><strong>{{ label('category', form.category) }}{{ form.category === 'others' && form.category_other.trim() ? ': ' + form.category_other.trim() : '' }}</strong></div></div>
-                  @if (equipmentName(); as eq) {
-                    <div class="rp-row"><ion-icon name="desktop-outline" /><div><span>Equipment</span><strong>{{ eq }}</strong></div></div>
-                  }
                   <div class="rp-row">
                     <ion-icon name="warning-outline" />
                     <div><span>Severity</span><em [class]="'rp-sev-tag rp-sev-tag-' + form.severity"><i class="rp-dot"></i>{{ label('severity', form.severity) }}</em></div>
                   </div>
-                  <div class="rp-row rp-row-wide"><ion-icon name="document-text-outline" /><div><span>Notes</span><strong class="rp-row-text">{{ form.description.trim() || 'No notes' }}</strong></div></div>
+                  @if (equipmentName(); as eq) {
+                    <div class="rp-row rp-row-wide"><ion-icon name="desktop-outline" /><div><span>Equipment</span><strong>{{ eq }}</strong></div></div>
+                  }
+                  <div class="rp-row rp-row-wide">
+                    <ion-icon name="document-text-outline" />
+                    <div><span>Notes</span><strong class="rp-row-text" [class.rp-muted]="!form.description.trim()">{{ form.description.trim() || 'No notes' }}</strong></div>
+                  </div>
                 </div>
               </section>
               <section class="rp-rcard rp-rcard-photo">
                 <h3 class="rp-rcard-h"><ion-icon name="image-outline" />Attached Photo</h3>
                 @if (previewUrl()) {
-                  <img [src]="previewUrl()" alt="Attached photo" />
+                  <div class="rp-rphoto"><img [src]="previewUrl()" alt="Attached photo" /></div>
                 } @else {
                   <div class="rp-nophoto"><ion-icon name="image-outline" />No photo attached</div>
                 }

@@ -614,7 +614,6 @@ ion-tab-bar.rp-tabbar ion-tab-button.tab-selected::after {
 .rp-review .rp-row strong { font-size: 1rem; }
 .rp-sev-tag { gap: 7px; padding: 3px 12px; font-size: 0.86rem; }
 .rp-dot { width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
-.rp-rcard-photo img { display: block; width: 100%; height: 200px; margin-top: 8px; border-radius: 14px; object-fit: cover; }
 .rp-nophoto {
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; height: 160px; margin-top: 8px;
   border: 2px dashed var(--rp-line); border-radius: 14px; color: var(--rp-text); font-size: 0.9rem;
@@ -646,7 +645,6 @@ ion-tab-bar.rp-tabbar ion-tab-button.tab-selected::after {
   .rp-review { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 0 26px; padding: 18px 22px; }
   .rp-review-rows .rp-row:last-child { border-bottom: 0; }
   .rp-rcard-photo { padding-left: 26px; border-left: 1px solid var(--rp-line); }
-  .rp-rcard-photo img { height: 230px; }
 
   /* same width as the content above (1180px + the 32px page padding on each side) */
   .rp-foot-in { max-width: 1244px; justify-content: space-between; }
@@ -661,7 +659,6 @@ ion-tab-bar.rp-tabbar ion-tab-button.tab-selected::after {
   .rp-sheet { padding: 14px 22px; }
   .rp-wizard .rp-step-dot { width: 30px; height: 30px; }
   .rp-wizard .rp-steps li + li::before { top: 14px; }
-  .rp-rcard-photo img { height: 170px; }
 }
 
 /* ---------- Photo box: fits the screen; a chosen photo is shown whole ----------
@@ -693,3 +690,19 @@ ion-tab-bar.rp-tabbar ion-tab-button.tab-selected::after {
 
 /* "Required" tag next to the photo step text */
 .rp-req { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: rgba(229, 56, 59, 0.1); color: var(--rp-danger); font-size: 0.74rem; font-weight: 700; }
+
+/* ---------- Review step: balanced rows, the whole photo ---------- */
+.rp-review .rp-review-rows > .rp-row:last-child { border-bottom: 0; }
+.rp-review .rp-row-main strong { font-size: 1.12rem; }
+.rp-review .rp-row strong.rp-muted { color: var(--rp-text); font-style: italic; font-weight: 500; }
+.rp-rphoto { display: flex; align-items: center; justify-content: center; margin-top: 10px; }
+.rp-rphoto img {
+  display: block; width: auto; height: auto; max-width: 100%; max-height: 320px; object-fit: contain;
+  border-radius: 14px; box-shadow: 0 8px 22px rgba(15, 42, 110, 0.16);
+}
+@media (min-width: 900px) {
+  .rp-review { align-items: start; }
+  .rp-review-rows .rp-row-wide { grid-column: 1 / -1; }
+  /* as tall as the space left on the screen, so the page does not scroll */
+  .rp-rphoto img { max-height: clamp(170px, calc(100vh - 470px), 420px); }
+}
