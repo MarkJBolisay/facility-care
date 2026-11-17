@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -148,8 +149,28 @@ export class FacilityFormPage {
   }
 
   async remove(): Promise<void> {
-    if (!(await this.ui.confirm('Delete facility', 'Reports and work orders will keep their history but lose the link.', 'Delete', true))) return;
-    const ok = await this.ui.busy(() => this.api.delete(`facilities/${this.id()}`).then(() => true));
-    if (ok) await this.router.navigateByUrl('/tabs/facilities', { replaceUrl: true });
+    const sure = await this.ui.confirm(
+      'Delete facility',
+      'This permanently deletes it. A place with reports, work orders or equipment can only be closed.',
+      'Delete',
+      true,
+    );
+    if (!sure) return;
+    try {
+      await this.api.delete(`facilities/${this.id()}`);
+      await this.ui.toast('Facility deleted.', 'success');
+      await this.router.navigateByUrl('/tabs/facilities', { replaceUrl: true });
+    } catch (err) {
+      // it has history: offer to close it instead
+      const body = err instanceof HttpErrorResponse ? err.error : null;
+      if (err instanceof HttpErrorResponse && err.status === 422 && body?.can_close) {
+        if (await this.ui.confirm("Can't delete this facility", body.message, 'Set to Closed')) {
+          this.form.status = 'closed';
+          await this.save();
+        }
+        return;
+      }
+      await this.ui.error(err);
+    }
   }
 }

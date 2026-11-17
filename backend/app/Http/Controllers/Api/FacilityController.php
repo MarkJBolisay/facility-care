@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Equipment;
 use App\Models\Facility;
 use App\Models\Report;
 use App\Models\WorkOrder;
+use App\Support\Counts;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -59,6 +61,19 @@ class FacilityController extends Controller
     {
         if ($facility->children()->exists()) {
             return response()->json(['message' => 'Remove or move the rooms inside this building first.'], 422);
+        }
+
+        // Deleting would blank the location on old reports and leave equipment without a place.
+        $has = Counts::describe([
+            'report' => Report::where('facility_id', $facility->id)->count(),
+            'work order' => WorkOrder::where('facility_id', $facility->id)->count(),
+            'equipment' => Equipment::where('facility_id', $facility->id)->count(),
+        ]);
+        if ($has) {
+            return response()->json([
+                'message' => "{$facility->name} has $has. Set its status to Closed instead so its history is kept.",
+                'can_close' => true,
+            ], 422);
         }
 
         $facility->delete();

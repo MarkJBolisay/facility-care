@@ -11,6 +11,7 @@ use App\Models\User;
 use App\Models\WorkOrder;
 use App\Services\Notifier;
 use App\Services\TechnicianMatcher;
+use App\Support\Counts;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -136,8 +137,20 @@ class EquipmentController extends Controller
         return $this->load($equipment->fresh());
     }
 
+    /** Only equipment with no reports or work orders can be deleted; otherwise its repair history would lose it. */
     public function destroy(Equipment $equipment)
     {
+        $has = Counts::describe([
+            'report' => $equipment->reports()->count(),
+            'work order' => $equipment->workOrders()->count(),
+        ]);
+        if ($has) {
+            return response()->json([
+                'message' => "{$equipment->name} ({$equipment->code}) has $has. Set its condition to Out of Service instead so its history is kept.",
+                'can_retire' => true,
+            ], 422);
+        }
+
         $equipment->delete();
 
         return response()->noContent();

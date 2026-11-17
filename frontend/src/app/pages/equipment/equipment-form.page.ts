@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { ChangeDetectorRef, Component, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
@@ -210,11 +211,28 @@ export class EquipmentFormPage {
   }
 
   async remove(): Promise<void> {
-    if (!(await this.ui.confirm('Delete equipment', 'Its repair history stays, but will no longer be linked to it.', 'Delete', true))) return;
-    const ok = await this.ui.busy(() => this.api.delete(`equipment/${this.id()}`).then(() => true));
-    if (ok) {
+    const sure = await this.ui.confirm(
+      'Delete equipment',
+      'This permanently deletes it. Equipment with reports or work orders can only be marked Out of Service.',
+      'Delete',
+      true,
+    );
+    if (!sure) return;
+    try {
+      await this.api.delete(`equipment/${this.id()}`);
       await this.ui.toast('Equipment deleted.');
       await this.router.navigateByUrl('/tabs/equipment', { replaceUrl: true });
+    } catch (err) {
+      // it has repair history: offer to retire it instead
+      const body = err instanceof HttpErrorResponse ? err.error : null;
+      if (err instanceof HttpErrorResponse && err.status === 422 && body?.can_retire) {
+        if (await this.ui.confirm("Can't delete this equipment", body.message, 'Mark Out of Service')) {
+          this.form.condition = 'out_of_service';
+          await this.save();
+        }
+        return;
+      }
+      await this.ui.error(err);
     }
   }
 }
