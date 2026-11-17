@@ -87,7 +87,12 @@ class ReportController extends Controller
             'category_other' => 'nullable|string|max:100|required_if:category,others',
             'equipment_id' => 'nullable|exists:equipment,id',
             'severity' => ['nullable', Rule::in(Report::SEVERITIES)],
-            'photo' => 'nullable|image|max:8192',
+            // a photo of the problem is required
+            'photo' => 'required|image|max:8192',
+        ], [
+            'photo.required' => 'Please add a photo of the issue.',
+            'photo.image' => 'The photo must be an image (JPG or PNG).',
+            'photo.max' => 'The photo must be 8 MB or smaller.',
         ]);
 
         // "Additional details" is optional on the form; the column is not nullable

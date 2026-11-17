@@ -217,7 +217,7 @@ const SEVERITY_CARDS = [
               <span class="rp-title-icon" aria-hidden="true"><ion-icon name="image-outline" /></span>
               <div>
                 <h2 class="rp-h">Add Photo</h2>
-                <p class="rp-p">Attach a clear photo of the issue (optional but highly recommended).</p>
+                <p class="rp-p">Attach a clear photo of the issue. <b class="rp-req">Required</b></p>
               </div>
             </div>
             <div class="rp-photo">
@@ -251,7 +251,7 @@ const SEVERITY_CARDS = [
                         <ion-icon name="camera-outline" />Take Photo
                       </button>
                       <button type="button" class="rp-drop-btn" (click)="$event.stopPropagation(); choosePhoto(false)">
-                        <ion-icon name="images-outline" /><span class="rp-hide-sm">Choose from&nbsp;</span>Gallery
+                        <ion-icon name="images-outline" /><span><span class="rp-hide-sm">Choose from </span>Gallery</span>
                       </button>
                     </div>
                     <small>Supports: JPG, PNG <i>|</i> Max size: 8 MB</small>
@@ -468,6 +468,7 @@ export class ReportFormPage {
     if (!file) return;
     this.photo = await resizeImage(file);
     this.setPreview(URL.createObjectURL(this.photo));
+    this.error.set('');
   }
 
   clearPhoto(): void {
@@ -497,6 +498,11 @@ export class ReportFormPage {
         return;
       }
     }
+    // a photo is required before going on to the review
+    if (this.step() === 1 && !this.photo) {
+      this.error.set('Please add a photo of the issue before you continue.');
+      return;
+    }
     this.error.set('');
     this.step.set(Math.min(2, this.step() + 1));
   }
@@ -522,6 +528,11 @@ export class ReportFormPage {
     if (missing) {
       this.step.set(0);
       this.error.set(missing);
+      return;
+    }
+    if (!this.photo) {
+      this.step.set(1);
+      this.error.set('Please add a photo of the issue before you continue.');
       return;
     }
     this.saving.set(true);

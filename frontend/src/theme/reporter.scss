@@ -690,3 +690,6 @@ ion-tab-bar.rp-tabbar ion-tab-button.tab-selected::after {
   .rp-drop-btn { flex: 1 1 0; justify-content: center; min-width: 0; padding: 0 10px; font-size: 0.85rem; }
   .rp-hide-sm { display: none; }
 }
+
+/* "Required" tag next to the photo step text */
+.rp-req { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: rgba(229, 56, 59, 0.1); color: var(--rp-danger); font-size: 0.74rem; font-weight: 700; }
