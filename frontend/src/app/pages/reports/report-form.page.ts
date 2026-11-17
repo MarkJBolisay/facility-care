@@ -287,16 +287,13 @@ export class ReportFormPage {
   protected buildingId = signal<number | null>(null);
   protected equipment = signal<Equipment[]>([]);
   protected buildings = computed(() => this.facilities().filter((f) => !f.parent_id));
-  /** A building lists "whole building" + its rooms; a place without rooms (e.g. parking area) lists itself. */
+  /** A building lists its rooms; a place without rooms yet (e.g. parking area) lists itself so it can still be picked. */
   protected roomOptions = computed(() => {
     const picked = this.facilities().find((f) => f.id === this.buildingId());
     if (!picked) return [];
     const rooms = this.facilities().filter((f) => f.parent_id === picked.id);
-    if (picked.type !== 'building' && !rooms.length) return [{ id: picked.id, name: picked.name }];
-    return [
-      { id: picked.id, name: 'Whole building / common area' },
-      ...rooms.map((f) => ({ id: f.id, name: f.name + (f.floor ? ` (${f.floor} floor)` : '') })),
-    ];
+    if (!rooms.length) return [{ id: picked.id, name: picked.name }];
+    return rooms.map((f) => ({ id: f.id, name: f.name + (f.floor ? ` (${f.floor} floor)` : '') }));
   });
   protected previewUrl = signal<string | null>(null);
   protected saving = signal(false);
