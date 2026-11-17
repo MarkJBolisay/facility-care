@@ -222,7 +222,7 @@ const SEVERITY_CARDS = [
             </div>
             <div class="rp-photo">
               <!-- the chosen photo fills the box; tap it to take another -->
-              <div class="rp-drop-wrap">
+              <div class="rp-drop-wrap" [class.with-photo]="previewUrl()">
                 @if (previewUrl()) {
                   <button type="button" class="rp-drop has-photo" (click)="choosePhoto(true)">
                     <img [src]="previewUrl()" alt="Selected photo" />

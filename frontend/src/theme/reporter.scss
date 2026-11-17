@@ -602,6 +602,10 @@ ion-tab-bar.rp-tabbar ion-tab-button.tab-selected::after {
 .rp-drop > small i { margin: 0 10px; font-style: normal; opacity: 0.6; }
 .rp-drop-wrap > .rp-drop.has-photo { min-height: 280px; }
 .rp-drop.has-photo > .rp-drop-retake { color: #fff; font-size: 0.82rem; }
+/* a chosen photo shows as a square in the middle (no empty bars at the sides) */
+.rp-drop-wrap.with-photo { width: min(100%, 340px); margin: 0 auto; }
+.rp-drop-wrap.with-photo > .rp-drop.has-photo { min-height: 0; aspect-ratio: 1 / 1; }
+.rp-drop.has-photo img { object-fit: cover; }
 
 
 /* step 3: one card, details + photo, each with a tinted header bar */
@@ -646,7 +650,8 @@ ion-tab-bar.rp-tabbar ion-tab-button.tab-selected::after {
   .rp-textarea { height: 120px; }
 
   .rp-photo { display: block; }
-  .rp-drop, .rp-drop-wrap > .rp-drop.has-photo { min-height: 330px; }
+  .rp-drop { min-height: 330px; }
+  .rp-drop-wrap.with-photo { width: 330px; }
 
   .rp-review { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 0 26px; padding: 18px 22px; }
   .rp-review-rows .rp-row:last-child { border-bottom: 0; }
@@ -666,7 +671,8 @@ ion-tab-bar.rp-tabbar ion-tab-button.tab-selected::after {
   .rp-sheet { padding: 14px 22px; }
   .rp-wizard .rp-step-dot { width: 30px; height: 30px; }
   .rp-wizard .rp-steps li + li::before { top: 14px; }
-  .rp-drop, .rp-drop-wrap > .rp-drop.has-photo { min-height: 250px; }
+  .rp-drop { min-height: 250px; }
+  .rp-drop-wrap.with-photo { width: 250px; }
   .rp-drop-art { width: 100px; }
   .rp-rcard-photo img { height: 170px; }
 }
