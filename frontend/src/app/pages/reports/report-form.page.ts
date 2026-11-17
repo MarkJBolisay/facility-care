@@ -222,13 +222,16 @@ const SEVERITY_CARDS = [
             </div>
             <div class="rp-photo">
               <!-- the chosen photo fills the box; tap it to take another -->
-              <div class="rp-drop-wrap" [class.with-photo]="previewUrl()">
+              <div class="rp-drop-wrap">
                 @if (previewUrl()) {
-                  <button type="button" class="rp-drop has-photo" (click)="choosePhoto(true)">
-                    <img [src]="previewUrl()" alt="Selected photo" />
-                    <span class="rp-drop-retake"><ion-icon name="camera-outline" />Retake</span>
-                  </button>
-                  <button type="button" class="rp-drop-x" aria-label="Remove photo" (click)="clearPhoto()"><ion-icon name="close" /></button>
+                  <!-- the frame takes the photo's own shape so the whole picture shows -->
+                  <div class="rp-photo-frame">
+                    <button type="button" class="rp-drop has-photo" (click)="choosePhoto(true)">
+                      <img [src]="previewUrl()" alt="Selected photo" />
+                      <span class="rp-drop-retake"><ion-icon name="camera-outline" />Retake</span>
+                    </button>
+                    <button type="button" class="rp-drop-x" aria-label="Remove photo" (click)="clearPhoto()"><ion-icon name="close" /></button>
+                  </div>
                 } @else {
                   <div class="rp-drop" (click)="choosePhoto(true)">
                     <svg class="rp-drop-art" viewBox="0 0 150 104" aria-hidden="true">
@@ -248,7 +251,7 @@ const SEVERITY_CARDS = [
                         <ion-icon name="camera-outline" />Take Photo
                       </button>
                       <button type="button" class="rp-drop-btn" (click)="$event.stopPropagation(); choosePhoto(false)">
-                        <ion-icon name="images-outline" />Choose from Gallery
+                        <ion-icon name="images-outline" /><span class="rp-hide-sm">Choose from&nbsp;</span>Gallery
                       </button>
                     </div>
                     <small>Supports: JPG, PNG <i>|</i> Max size: 8 MB</small>

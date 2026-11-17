@@ -306,10 +306,8 @@ ion-content.rp-sheeted { --background: var(--rp-head) top / 100% 40px no-repeat,
 .rp-photo-btns button:last-child ion-icon { color: var(--rp-text); }
 .rp-photo-btns button:disabled { opacity: 0.5; cursor: default; }
 /* the chosen photo fills the dashed box */
-.rp-drop-wrap { position: relative; display: flex; flex-direction: column; }
+.rp-drop-wrap { position: relative; display: flex; flex-direction: row; justify-content: center; align-items: flex-start; }
 .rp-drop-wrap > .rp-drop { flex: 1; }
-.rp-drop.has-photo { position: relative; padding: 0; overflow: hidden; border-style: solid; background: #0b1530; }
-.rp-drop.has-photo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
 .rp-drop-retake {
   position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 6px;
   padding: 6px 14px; border-radius: 999px; background: rgba(0, 0, 0, 0.55); color: #fff; font-size: 0.82rem; font-weight: 700;
@@ -600,12 +598,7 @@ ion-tab-bar.rp-tabbar ion-tab-button.tab-selected::after {
 .rp-drop .rp-drop-btn.primary ion-icon { color: #fff; }
 .rp-drop > small { font-size: 0.8rem; color: var(--rp-text); }
 .rp-drop > small i { margin: 0 10px; font-style: normal; opacity: 0.6; }
-.rp-drop-wrap > .rp-drop.has-photo { min-height: 280px; }
 .rp-drop.has-photo > .rp-drop-retake { color: #fff; font-size: 0.82rem; }
-/* a chosen photo shows as a square in the middle (no empty bars at the sides) */
-.rp-drop-wrap.with-photo { width: min(100%, 340px); margin: 0 auto; }
-.rp-drop-wrap.with-photo > .rp-drop.has-photo { min-height: 0; aspect-ratio: 1 / 1; }
-.rp-drop.has-photo img { object-fit: cover; }
 
 
 /* step 3: one card, details + photo, each with a tinted header bar */
@@ -637,7 +630,6 @@ ion-tab-bar.rp-tabbar ion-tab-button.tab-selected::after {
   .rp-title-icon { width: 46px; height: 46px; }
   .rp-title .rp-h { font-size: 1.25rem; }
   .rp-drop { padding: 22px 14px; }
-  .rp-drop-btn { flex: 1 1 100%; justify-content: center; }
 }
 
 @media (min-width: 900px) {
@@ -650,8 +642,6 @@ ion-tab-bar.rp-tabbar ion-tab-button.tab-selected::after {
   .rp-textarea { height: 120px; }
 
   .rp-photo { display: block; }
-  .rp-drop { min-height: 330px; }
-  .rp-drop-wrap.with-photo { width: 330px; }
 
   .rp-review { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 0 26px; padding: 18px 22px; }
   .rp-review-rows .rp-row:last-child { border-bottom: 0; }
@@ -671,8 +661,32 @@ ion-tab-bar.rp-tabbar ion-tab-button.tab-selected::after {
   .rp-sheet { padding: 14px 22px; }
   .rp-wizard .rp-step-dot { width: 30px; height: 30px; }
   .rp-wizard .rp-steps li + li::before { top: 14px; }
-  .rp-drop { min-height: 250px; }
-  .rp-drop-wrap.with-photo { width: 250px; }
-  .rp-drop-art { width: 100px; }
   .rp-rcard-photo img { height: 170px; }
+}
+
+/* ---------- Photo box: fits the screen; a chosen photo is shown whole ----------
+   --photo-h is the space left between the step title and the buttons, so nothing scrolls.
+   Empty: a 4:3 box that tall. With a photo: the frame takes the photo's own shape (no cropping, no empty bars). */
+.rp-wizard { --photo-h: clamp(240px, calc(100vh - 420px), 460px); --photo-w: calc(100vw - 32px); }
+@media (max-width: 360px) { .rp-wizard { --photo-w: calc(100vw - 24px); } }
+@media (min-width: 900px) { .rp-wizard { --photo-h: clamp(220px, calc(100vh - 400px), 560px); --photo-w: min(1180px, calc(100vw - 64px)); } }
+
+.rp-drop-wrap > .rp-drop:not(.has-photo) {
+  flex: 0 1 auto; width: min(100%, calc(var(--photo-h) * 4 / 3)); height: var(--photo-h); min-height: 0; padding: 16px; border-radius: 20px;
+}
+.rp-drop-art { width: clamp(64px, calc(var(--photo-h) * 0.3), 120px); }
+
+.rp-photo-frame { position: relative; display: inline-flex; flex: 0 0 auto; max-width: 100%; }
+.rp-drop.has-photo {
+  display: block; min-height: 0; padding: 0; overflow: hidden; border: 0; border-radius: 18px; background: none;
+  box-shadow: 0 10px 28px rgba(15, 42, 110, 0.18);
+}
+.rp-drop.has-photo img {
+  position: static; display: block; width: auto; height: auto; max-width: var(--photo-w); max-height: var(--photo-h); object-fit: contain;
+}
+
+@media (max-width: 599px) {
+  .rp-drop-btns { flex-wrap: nowrap; width: 100%; }
+  .rp-drop-btn { flex: 1 1 0; justify-content: center; min-width: 0; padding: 0 10px; font-size: 0.85rem; }
+  .rp-hide-sm { display: none; }
 }
