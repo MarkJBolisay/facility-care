@@ -305,14 +305,22 @@ ion-content.rp-sheeted { --background: var(--rp-head) top / 100% 40px no-repeat,
 .rp-photo-btns button ion-icon { font-size: 24px; color: var(--rp-blue); }
 .rp-photo-btns button:last-child ion-icon { color: var(--rp-text); }
 .rp-photo-btns button:disabled { opacity: 0.5; cursor: default; }
-.rp-preview { position: relative; width: 150px; height: 110px; margin-top: 14px; }
-.rp-preview img { width: 100%; height: 100%; object-fit: cover; border-radius: 12px; box-shadow: var(--rp-shadow); }
-.rp-preview button {
-  position: absolute; top: -9px; right: -9px; display: grid; place-items: center; width: 26px; height: 26px; padding: 0;
-  border: 2px solid #fff; border-radius: 50%; background: var(--rp-navy); color: #fff; cursor: pointer;
+/* the chosen photo fills the dashed box */
+.rp-drop-wrap { position: relative; display: flex; flex-direction: column; }
+.rp-drop-wrap > .rp-drop { flex: 1; }
+.rp-drop.has-photo { position: relative; padding: 0; overflow: hidden; border-style: solid; background: #0b1530; }
+.rp-drop.has-photo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.rp-drop-retake {
+  position: absolute; left: 50%; bottom: 12px; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 14px; border-radius: 999px; background: rgba(0, 0, 0, 0.55); color: #fff; font-size: 0.82rem; font-weight: 700;
 }
-@media (prefers-color-scheme: dark) { .rp-preview button { background: #0b2a6f; } }
-.rp-preview button ion-icon { font-size: 15px; }
+.rp-drop.has-photo .rp-drop-retake ion-icon { font-size: 16px; color: #fff; }
+.rp-drop-x {
+  position: absolute; top: 10px; right: 10px; display: grid; place-items: center; width: 32px; height: 32px; padding: 0;
+  border: 2px solid #fff; border-radius: 50%; background: var(--rp-navy); color: #fff; cursor: pointer; box-shadow: var(--rp-shadow);
+}
+@media (prefers-color-scheme: dark) { .rp-drop-x { background: #0b2a6f; } }
+.rp-drop-x ion-icon { font-size: 17px; }
 
 /* review step */
 .rp-review {
@@ -480,7 +488,6 @@ ion-tab-bar.rp-tabbar ion-tab-button.tab-selected::after {
 
   .rp-photo { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 24px; align-items: start; }
   .rp-drop { min-height: 240px; }
-  .rp-preview { width: 100%; height: 150px; }
 
   .rp-review { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 0 28px; padding: 6px 20px; }
   .rp-review-rows { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; }

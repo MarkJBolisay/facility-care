@@ -8,6 +8,7 @@ import { pickPhoto, resizeImage } from '../../core/image';
 import { CATEGORIES, Equipment, Facility, Report, labelOf } from '../../core/models';
 import { UiService } from '../../core/ui.service';
 import { IONIC } from '../../shared/ionic';
+import { CameraService } from '../../shared/camera';
 
 const STEP_NAMES = ['Details', 'Photo', 'Review'];
 /** Value of the "Others" choice in the Building and Room / Area lists. */
@@ -188,22 +189,27 @@ const SEVERITY_CARDS = [
             <h2 class="rp-h">Add Photo</h2>
             <p class="rp-p">Attach a clear photo of the issue<br />(optional but highly recommended).</p>
             <div class="rp-photo">
-              <button type="button" class="rp-drop" (click)="choosePhoto(true)">
-                <ion-icon name="camera-outline" />
-                <span>Tap to take a photo<br />or choose from gallery</span>
-              </button>
+              <!-- the chosen photo shows inside the box; tap the box to take another -->
+              <div class="rp-drop-wrap">
+                <button type="button" class="rp-drop" [class.has-photo]="previewUrl()" (click)="choosePhoto(true)">
+                  @if (previewUrl()) {
+                    <img [src]="previewUrl()" alt="Selected photo" />
+                    <span class="rp-drop-retake"><ion-icon name="camera-outline" />Retake</span>
+                  } @else {
+                    <ion-icon name="camera-outline" />
+                    <span>Tap to take a photo</span>
+                  }
+                </button>
+                @if (previewUrl()) {
+                  <button type="button" class="rp-drop-x" aria-label="Remove photo" (click)="clearPhoto()"><ion-icon name="close" /></button>
+                }
+              </div>
               <div class="rp-photo-side">
                 <div class="rp-photo-btns">
                   <button type="button" (click)="choosePhoto(true)"><ion-icon name="camera-outline" />Camera</button>
                   <button type="button" (click)="choosePhoto(false)"><ion-icon name="images-outline" />Gallery</button>
                   <button type="button" (click)="clearPhoto()" [disabled]="!previewUrl()"><ion-icon name="trash-outline" />Clear</button>
                 </div>
-                @if (previewUrl()) {
-                  <div class="rp-preview">
-                    <img [src]="previewUrl()" alt="Selected photo" />
-                    <button type="button" aria-label="Remove photo" (click)="clearPhoto()"><ion-icon name="close" /></button>
-                  </div>
-                }
               </div>
             </div>
           }
@@ -272,6 +278,7 @@ export class ReportFormPage {
   private route = inject(ActivatedRoute);
   private location = inject(Location);
   private cdr = inject(ChangeDetectorRef);
+  private camera = inject(CameraService);
   protected auth = inject(AuthService);
   private followUpOf: string | null = null;
 
@@ -409,7 +416,7 @@ export class ReportFormPage {
   }
 
   async choosePhoto(camera: boolean): Promise<void> {
-    const file = await pickPhoto(camera);
+    const file = camera ? await this.camera.takePhoto() : await pickPhoto(false);
     if (!file) return;
     this.photo = await resizeImage(file);
     this.setPreview(URL.createObjectURL(this.photo));

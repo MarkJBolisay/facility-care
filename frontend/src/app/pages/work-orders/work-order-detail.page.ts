@@ -11,6 +11,7 @@ import { ActivityComponent } from '../../shared/activity';
 import { UiService } from '../../core/ui.service';
 import { IONIC } from '../../shared/ionic';
 import { SHARED } from '../../shared/ui';
+import { CameraService } from '../../shared/camera';
 
 @Component({
   selector: 'app-work-order-detail',
@@ -420,6 +421,7 @@ import { SHARED } from '../../shared/ui';
 export class WorkOrderDetailPage {
   private api = inject(ApiService);
   private ui = inject(UiService);
+  private camera = inject(CameraService);
   private router = inject(Router);
   private nav = inject(NavController);
   protected auth = inject(AuthService);
@@ -551,7 +553,7 @@ export class WorkOrderDetailPage {
   async addPhoto(type: 'before' | 'after'): Promise<void> {
     const source = await this.ui.photoSource(type === 'before' ? 'Before photo' : 'After photo');
     if (!source) return;
-    const file = await pickPhoto(source === 'camera');
+    const file = source === 'camera' ? await this.camera.takePhoto() : await pickPhoto(false);
     if (!file) return;
     this.uploading.set(type);
     try {
