@@ -16,7 +16,8 @@ use Illuminate\Support\Facades\Route;
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/register', [AuthController::class, 'register']);
 
-Route::middleware('auth:sanctum')->group(function () {
+// 'active': a deactivated account is signed out even if it was already logged in
+Route::middleware(['auth:sanctum', 'active'])->group(function () {
     // Account
     Route::get('/me', [AuthController::class, 'me']);
     Route::put('/me', [AuthController::class, 'updateProfile']);

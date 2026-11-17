@@ -1,6 +1,6 @@
 import { HttpClient } from '@angular/common/http';
 import { Capacitor } from '@capacitor/core';
-import { Component, inject, signal } from '@angular/core';
+import { Component, effect, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { AlertController, LoadingController } from '@ionic/angular';
@@ -131,6 +131,15 @@ export class LoginPage {
   protected readonly showServer = Capacitor.isNativePlatform();
   protected serverHost = signal(apiHost());
 
+  /**
+   * Signed out by the app (e.g. account deactivated): say why, even if the reason arrives after this screen opened.
+   * The reason stays until the person logs in again, so a second sign-out redirect does not lose it.
+   */
+  private showNotice = effect(() => {
+    const notice = this.auth.notice();
+    if (notice) this.error.set(notice);
+  });
+
   /** Change the backend address (the laptop's IP) without rebuilding the APK. */
   async changeServer(): Promise<void> {
     if (await openServerDialog(this.alertCtrl, this.loadingCtrl, this.http)) {
@@ -154,6 +163,7 @@ export class LoginPage {
     }
     this.loading.set(true);
     this.error.set('');
+    this.auth.setNotice('');
     try {
       const user = await this.auth.login(this.email.trim(), this.password, this.remember);
       this.password = '';

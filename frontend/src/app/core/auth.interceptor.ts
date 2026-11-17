@@ -18,6 +18,8 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   return next(request).pipe(
     catchError((err: unknown) => {
       if (err instanceof HttpErrorResponse && err.status === 401 && token && !req.url.endsWith('/logout')) {
+        // the server says why (e.g. the account was deactivated): show it on the login screen
+        if (err.error?.deactivated && err.error?.message) auth.setNotice(err.error.message);
         void auth.logout(false);
       }
       return throwError(() => err);

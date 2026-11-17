@@ -6,6 +6,7 @@ import { REPORTER_ROLES, Role, User } from './models';
 const TOKEN_KEY = 'fc_token';
 const USER_KEY = 'fc_user';
 const LAST_EMAIL_KEY = 'fc_last_email';
+const NOTICE_KEY = 'fc_notice';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
@@ -14,6 +15,17 @@ export class AuthService {
 
   readonly user = signal<User | null>(readJson<User>(USER_KEY));
   readonly isLoggedIn = computed(() => !!this.user() && !!this.token);
+  /**
+   * Why the app signed out by itself (e.g. the account was deactivated), shown on the login screen.
+   * Kept in storage so it survives the app being reloaded or reopened; cleared on the next log in.
+   */
+  readonly notice = signal(safeGet(NOTICE_KEY) ?? '');
+
+  setNotice(message: string): void {
+    this.notice.set(message);
+    if (message) safeSet(NOTICE_KEY, message);
+    else safeRemove(NOTICE_KEY);
+  }
   readonly role = computed<Role | null>(() => this.user()?.role ?? null);
   readonly isAdmin = computed(() => this.role() === 'admin');
   readonly isMaintenance = computed(() => this.role() === 'maintenance');

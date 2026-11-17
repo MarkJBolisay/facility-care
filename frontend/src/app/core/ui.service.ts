@@ -1,3 +1,4 @@
+import { HttpErrorResponse } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { ActionSheetController, AlertController, LoadingController, ToastController } from '@ionic/angular';
 import { errorMessage } from './api.service';
@@ -35,6 +36,8 @@ export class UiService {
   }
 
   async error(err: unknown): Promise<void> {
+    // 401 = signed out (expired or deactivated): the app goes to the login screen, which says why
+    if (err instanceof HttpErrorResponse && err.status === 401) return;
     await this.toast(errorMessage(err), 'danger');
   }
 

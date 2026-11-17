@@ -41,6 +41,16 @@ class User extends Authenticatable
         'remember_token',
     ];
 
+    protected static function booted(): void
+    {
+        // Turning an account back on does not revive its old logins: the person signs in again.
+        static::updated(function (User $user) {
+            if ($user->wasChanged('is_active') && $user->is_active) {
+                $user->tokens()->delete();
+            }
+        });
+    }
+
     protected function casts(): array
     {
         return [
