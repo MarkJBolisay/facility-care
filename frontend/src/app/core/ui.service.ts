@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { AlertController, LoadingController, ToastController } from '@ionic/angular';
+import { ActionSheetController, AlertController, LoadingController, ToastController } from '@ionic/angular';
 import { errorMessage } from './api.service';
 
 @Injectable({ providedIn: 'root' })
@@ -7,10 +7,31 @@ export class UiService {
   private toastCtrl = inject(ToastController);
   private alertCtrl = inject(AlertController);
   private loadingCtrl = inject(LoadingController);
+  private sheetCtrl = inject(ActionSheetController);
 
   async toast(message: string, color: 'success' | 'danger' | 'dark' | 'warning' = 'dark'): Promise<void> {
     const t = await this.toastCtrl.create({ message, color, duration: 2500, position: 'bottom' });
     await t.present();
+  }
+
+  /** "Take photo" or "Choose from gallery"; null when cancelled. */
+  async photoSource(header = 'Add photo'): Promise<'camera' | 'gallery' | null> {
+    return new Promise((resolve) => {
+      void this.sheetCtrl
+        .create({
+          header,
+          buttons: [
+            // resolve inside the tap itself, so the photo picker still counts as opened by the user
+            { text: 'Take photo', icon: 'camera-outline', handler: () => resolve('camera') },
+            { text: 'Choose from gallery', icon: 'images-outline', handler: () => resolve('gallery') },
+            { text: 'Cancel', role: 'cancel', handler: () => resolve(null) },
+          ],
+        })
+        .then((sheet) => {
+          void sheet.onDidDismiss().then(() => resolve(null)); // tapping outside; ignored if already resolved
+          return sheet.present();
+        });
+    });
   }
 
   async error(err: unknown): Promise<void> {

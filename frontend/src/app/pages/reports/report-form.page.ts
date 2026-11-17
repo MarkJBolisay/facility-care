@@ -188,7 +188,7 @@ const SEVERITY_CARDS = [
             <h2 class="rp-h">Add Photo</h2>
             <p class="rp-p">Attach a clear photo of the issue<br />(optional but highly recommended).</p>
             <div class="rp-photo">
-              <button type="button" class="rp-drop" (click)="choosePhoto(false)">
+              <button type="button" class="rp-drop" (click)="choosePhoto(true)">
                 <ion-icon name="camera-outline" />
                 <span>Tap to take a photo<br />or choose from gallery</span>
               </button>

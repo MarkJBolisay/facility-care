@@ -549,7 +549,9 @@ export class WorkOrderDetailPage {
   }
 
   async addPhoto(type: 'before' | 'after'): Promise<void> {
-    const file = await pickPhoto();
+    const source = await this.ui.photoSource(type === 'before' ? 'Before photo' : 'After photo');
+    if (!source) return;
+    const file = await pickPhoto(source === 'camera');
     if (!file) return;
     this.uploading.set(type);
     try {

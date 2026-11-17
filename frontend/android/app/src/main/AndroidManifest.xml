@@ -35,6 +35,14 @@
         </provider>
     </application>
 
+    <!-- Android 11+ hides other apps unless declared here. The "Camera" photo button
+         opens the phone's camera app, so the app must be able to see it. -->
+    <queries>
+        <intent>
+            <action android:name="android.media.action.IMAGE_CAPTURE" />
+        </intent>
+    </queries>
+
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
