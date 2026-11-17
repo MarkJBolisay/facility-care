@@ -176,9 +176,9 @@ const SEVERITY_CARDS = [
                   }
                 </div>
 
-                <label class="rp-label" for="rf-details">Additional Details</label>
+                <label class="rp-label" for="rf-details">Notes <i>(optional)</i></label>
                 <textarea id="rf-details" class="rp-input rp-textarea" name="description" [maxlength]="maxDetails"
-                  placeholder="Describe the issue in detail..." [(ngModel)]="form.description"></textarea>
+                  placeholder="Anything else the maintenance team should know..." [(ngModel)]="form.description"></textarea>
                 <div class="rp-count">{{ form.description.length }} / {{ maxDetails }}</div>
               </div>
             </div>
@@ -224,7 +224,7 @@ const SEVERITY_CARDS = [
                   <ion-icon name="warning-outline" />
                   <div><span>Severity</span><em [class]="'rp-sev-tag rp-sev-tag-' + form.severity"><ion-icon name="alert-circle-outline" />{{ label('severity', form.severity) }}</em></div>
                 </div>
-                <div class="rp-row"><ion-icon name="document-text-outline" /><div><span>Description</span><strong class="rp-row-text">{{ form.description.trim() || 'No additional details' }}</strong></div></div>
+                <div class="rp-row"><ion-icon name="document-text-outline" /><div><span>Notes</span><strong class="rp-row-text">{{ form.description.trim() || 'No notes' }}</strong></div></div>
               </div>
               <div class="rp-row rp-row-photo">
                 <ion-icon name="image-outline" />
