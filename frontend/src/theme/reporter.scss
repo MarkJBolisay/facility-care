@@ -584,7 +584,7 @@ ion-tab-bar.rp-tabbar ion-tab-button.tab-selected::after {
 .rp-sev strong { font-size: 1rem; }
 .rp-sev small { font-size: 0.74rem; text-align: center; line-height: 1.25; }
 
-/* step 2: empty box with art and two buttons, "Photo Options" card */
+/* step 2: box with art and the Take Photo / Choose from Gallery buttons; the photo fills it */
 .rp-drop { gap: 4px; min-height: 280px; border-radius: 18px; border-color: rgba(21, 101, 240, 0.55); background: rgba(21, 101, 240, 0.04); text-align: center; }
 .rp-drop-art { width: 132px; height: auto; margin-bottom: 8px; }
 .rp-drop > strong { font-size: 1.12rem; font-weight: 800; color: var(--rp-ink); }
@@ -601,23 +601,8 @@ ion-tab-bar.rp-tabbar ion-tab-button.tab-selected::after {
 .rp-drop > small { font-size: 0.8rem; color: var(--rp-text); }
 .rp-drop > small i { margin: 0 10px; font-style: normal; opacity: 0.6; }
 .rp-drop-wrap > .rp-drop.has-photo { min-height: 280px; }
+.rp-drop.has-photo > .rp-drop-retake { color: #fff; font-size: 0.82rem; }
 
-.rp-opts { padding: 16px; border-radius: 18px; background: var(--rp-card); border: 1px solid var(--rp-line); box-shadow: var(--rp-shadow); }
-.rp-opts h3 { margin: 0 0 12px; font-size: 1.1rem; font-weight: 800; color: var(--rp-ink); }
-.rp-opt {
-  display: flex; align-items: center; gap: 14px; width: 100%; margin: 0 0 10px; padding: 11px 12px; border-radius: 14px; cursor: pointer;
-  border: 1px solid var(--rp-line); background: rgba(21, 101, 240, 0.03); color: var(--rp-ink); text-align: left;
-}
-.rp-opt:last-child { margin-bottom: 0; }
-.rp-opt:hover:not(:disabled) { background: rgba(21, 101, 240, 0.07); }
-.rp-opt:disabled { opacity: 0.5; cursor: default; }
-.rp-opt-icon { display: grid; place-items: center; width: 46px; height: 46px; flex-shrink: 0; border-radius: 12px; background: rgba(21, 101, 240, 0.1); color: var(--rp-blue); }
-.rp-opt-icon ion-icon { font-size: 25px; }
-.rp-opt-danger .rp-opt-icon { background: rgba(229, 56, 59, 0.1); color: var(--rp-danger); }
-.rp-opt-text { display: flex; flex: 1; flex-direction: column; min-width: 0; }
-.rp-opt-text strong { font-size: 1rem; font-weight: 800; }
-.rp-opt-text small { font-size: 0.82rem; color: var(--rp-text); }
-.rp-opt-chev { font-size: 20px; color: var(--rp-ink); }
 
 /* step 3: one card, details + photo, each with a tinted header bar */
 .rp-review { display: flex; flex-direction: column; gap: 14px; padding: 14px; border-radius: 20px; }
@@ -645,8 +630,6 @@ ion-tab-bar.rp-tabbar ion-tab-button.tab-selected::after {
   .rp-head-text p { font-size: 0.78rem; }
   .rp-head-icon { width: 40px; height: 40px; }
   .rp-head-art { display: none; }
-  /* the box already has Take Photo / Choose from Gallery, and the photo has its own remove button */
-  .rp-opts { display: none; }
   .rp-title-icon { width: 46px; height: 46px; }
   .rp-title .rp-h { font-size: 1.25rem; }
   .rp-drop { padding: 22px 14px; }
@@ -662,7 +645,7 @@ ion-tab-bar.rp-tabbar ion-tab-button.tab-selected::after {
   .rp-input, .rp-select select { height: 44px; }
   .rp-textarea { height: 120px; }
 
-  .rp-photo { grid-template-columns: minmax(0, 1.75fr) minmax(0, 1fr); gap: 26px; align-items: stretch; }
+  .rp-photo { display: block; }
   .rp-drop, .rp-drop-wrap > .rp-drop.has-photo { min-height: 330px; }
 
   .rp-review { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 0 26px; padding: 18px 22px; }

@@ -255,25 +255,6 @@ const SEVERITY_CARDS = [
                   </div>
                 }
               </div>
-
-              <div class="rp-opts">
-                <h3>Photo Options</h3>
-                <button type="button" class="rp-opt" (click)="choosePhoto(true)">
-                  <span class="rp-opt-icon"><ion-icon name="camera-outline" /></span>
-                  <span class="rp-opt-text"><strong>Camera</strong><small>Take a new photo</small></span>
-                  <ion-icon name="chevron-forward-outline" class="rp-opt-chev" />
-                </button>
-                <button type="button" class="rp-opt" (click)="choosePhoto(false)">
-                  <span class="rp-opt-icon"><ion-icon name="images-outline" /></span>
-                  <span class="rp-opt-text"><strong>Gallery</strong><small>Select from your device</small></span>
-                  <ion-icon name="chevron-forward-outline" class="rp-opt-chev" />
-                </button>
-                <button type="button" class="rp-opt rp-opt-danger" (click)="clearPhoto()" [disabled]="!previewUrl()">
-                  <span class="rp-opt-icon"><ion-icon name="trash-outline" /></span>
-                  <span class="rp-opt-text"><strong>Clear</strong><small>Remove selected photo</small></span>
-                  <ion-icon name="chevron-forward-outline" class="rp-opt-chev" />
-                </button>
-              </div>
             </div>
           }
 
