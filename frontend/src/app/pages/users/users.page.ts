@@ -2,7 +2,7 @@ import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../../core/api.service';
-import { Paginated, ROLES, User } from '../../core/models';
+import { Paginated, MANAGED_ROLES, User } from '../../core/models';
 import { UiService } from '../../core/ui.service';
 import { IONIC } from '../../shared/ionic';
 import { SHARED, completeRefresh } from '../../shared/ui';
@@ -64,7 +64,7 @@ export class UsersPage {
   private api = inject(ApiService);
   private ui = inject(UiService);
 
-  protected roles = ROLES;
+  protected roles = MANAGED_ROLES;
   search = '';
   role = '';
   protected items = signal<User[]>([]);

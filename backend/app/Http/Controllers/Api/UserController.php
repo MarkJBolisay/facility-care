@@ -7,11 +7,18 @@ use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
+/**
+ * User Management: student, faculty, staff and technician accounts.
+ * Administrator accounts are not listed, created or edited here (the admin uses their own Profile).
+ */
 class UserController extends Controller
 {
+    /** Roles that can be managed on this screen. */
+    private const MANAGED_ROLES = ['maintenance', 'student', 'faculty', 'staff'];
+
     public function index(Request $request)
     {
-        $query = User::query()->orderBy('name');
+        $query = User::query()->whereIn('role', self::MANAGED_ROLES)->orderBy('name');
 
         if ($request->filled('role')) {
             $query->where('role', $request->input('role'));
@@ -29,7 +36,8 @@ class UserController extends Controller
     /** Recipient counts per role, for the user screen header and notification targeting. */
     public function counts()
     {
-        return User::selectRaw('role, count(*) as total')->groupBy('role')->pluck('total', 'role');
+        return User::whereIn('role', self::MANAGED_ROLES)
+            ->selectRaw('role, count(*) as total')->groupBy('role')->pluck('total', 'role');
     }
 
     public function store(Request $request)
@@ -44,6 +52,8 @@ class UserController extends Controller
 
     public function show(User $user)
     {
+        $this->ensureManaged($user);
+
         return $user->loadCount([
             'reports',
             'assignedWorkOrders as active_work_orders' => fn ($q) => $q->whereIn('status', ['pending', 'in_progress']),
@@ -53,6 +63,8 @@ class UserController extends Controller
 
     public function update(Request $request, User $user)
     {
+        $this->ensureManaged($user);
+
         $data = $request->validate($this->rules($request, $user) + [
             'email' => ['required', 'email', Rule::unique('users')->ignore($user->id)],
             'password' => 'nullable|string|min:6',
@@ -62,12 +74,6 @@ class UserController extends Controller
             unset($data['password']);
         }
 
-        // Don't let an admin lock themselves out.
-        if ($user->id === $request->user()->id) {
-            $data['role'] = 'admin';
-            $data['is_active'] = true;
-        }
-
         $user->update($data);
 
         return $user;
@@ -75,9 +81,7 @@ class UserController extends Controller
 
     public function destroy(Request $request, User $user)
     {
-        if ($user->id === $request->user()->id) {
-            return response()->json(['message' => 'You cannot delete your own account.'], 422);
-        }
+        $this->ensureManaged($user);
 
         $user->tokens()->delete();
         $user->delete();
@@ -85,11 +89,18 @@ class UserController extends Controller
         return response()->noContent();
     }
 
+    /** Administrator accounts are not handled on this screen. */
+    private function ensureManaged(User $user): void
+    {
+        abort_unless(in_array($user->role, self::MANAGED_ROLES, true), 404, 'User not found.');
+    }
+
     private function messages(): array
     {
         return [
             'id_number.regex' => 'Student ID must look like PPY2023-00249.',
             'id_number.unique' => 'This Student ID is already used by another account.',
+            'role.in' => 'Choose Technician, Student, Faculty or Staff.',
         ];
     }
 
@@ -102,7 +113,7 @@ class UserController extends Controller
 
         return [
             'name' => 'required|string|max:255',
-            'role' => ['required', Rule::in(User::ROLES)],
+            'role' => ['required', Rule::in(self::MANAGED_ROLES)],
             'phone' => 'nullable|string|max:30',
             'department' => 'nullable|string|max:255',
             'id_number' => $request->input('role') === 'student'

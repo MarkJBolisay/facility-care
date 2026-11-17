@@ -3,12 +3,12 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { ApiService } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
-import { CATEGORIES, ROLES, User } from '../../core/models';
+import { CATEGORIES, MANAGED_ROLES, User } from '../../core/models';
 import { UiService } from '../../core/ui.service';
 import { IONIC } from '../../shared/ionic';
 import { CapitalizeDirective } from '../../shared/capitalize';
 
-/** Admin: create or edit any account (students, faculty, staff, maintenance, admins). */
+/** Admin: create or edit student, faculty, staff and technician accounts (admins use their own Profile). */
 @Component({
   selector: 'app-user-form',
   imports: [...IONIC, FormsModule, CapitalizeDirective],
@@ -94,7 +94,7 @@ export class UserFormPage {
   protected isEdit = computed(() => !!this.id());
   protected isSelf = computed(() => this.id() === String(this.auth.user()?.id));
 
-  protected roles = ROLES;
+  protected roles = MANAGED_ROLES;
   protected categories = CATEGORIES;
   protected ready = signal(false);
   protected saving = signal(false);

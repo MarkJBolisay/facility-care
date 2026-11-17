@@ -240,6 +240,9 @@ export const ROLES: Option[] = [
   { value: 'staff', label: 'Staff' },
 ];
 
+/** Roles the admin manages in User Management (administrator accounts are not listed or created there). */
+export const MANAGED_ROLES: Option[] = ROLES.filter((r) => r.value !== 'admin');
+
 export const FACILITY_TYPES: Option[] = [
   { value: 'building', label: 'Building' },
   { value: 'room', label: 'Room' },
