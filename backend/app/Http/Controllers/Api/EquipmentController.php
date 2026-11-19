@@ -106,7 +106,7 @@ class EquipmentController extends Controller
             'equipment' => $this->load($equipment),
             'summary' => [
                 'total_requests' => $equipment->reports()->count(),
-                'open_requests' => $equipment->reports()->whereIn('status', ['pending', 'approved', 'in_progress'])->count(),
+                'open_requests' => $equipment->reports()->whereIn('status', Report::OPEN_STATUSES)->count(),
                 'repairs_completed' => $completed->where('type', 'corrective')->count(),
                 'services_completed' => $completed->where('type', 'preventive')->count(),
                 'materials_cost' => round($completed->sum('materials_cost'), 2),

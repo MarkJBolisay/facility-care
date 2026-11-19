@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Models\WorkOrder;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -56,7 +57,7 @@ class UserController extends Controller
 
         return $user->loadCount([
             'reports',
-            'assignedWorkOrders as active_work_orders' => fn ($q) => $q->whereIn('status', ['pending', 'in_progress']),
+            'assignedWorkOrders as active_work_orders' => fn ($q) => $q->whereIn('status', WorkOrder::ACTIVE_STATUSES),
             'assignedWorkOrders as completed_work_orders' => fn ($q) => $q->where('status', 'completed'),
         ]);
     }

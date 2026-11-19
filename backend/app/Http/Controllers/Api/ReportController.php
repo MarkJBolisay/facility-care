@@ -262,7 +262,7 @@ class ReportController extends Controller
             'admin_remarks' => 'required|string|max:2000',
         ]);
 
-        if (in_array($report->status, ['in_progress', 'completed'])) {
+        if (in_array($report->status, ['in_progress', 'nearing_completion', 'completed'])) {
             return response()->json(['message' => 'This report is already being worked on.'], 422);
         }
 
@@ -400,7 +400,12 @@ class ReportController extends Controller
             'facility.parent',
             'equipment.facility.parent',
             'reviewer:id,name',
-            'workOrders' => fn ($q) => $q->latest()->with('assignee:id,name,phone'),
+            'workOrders' => fn ($q) => $q->latest()->with([
+                'assignee:id,name,phone,specialization',
+                'photos.uploader:id,name',
+                'stages.user:id,name,role',
+                'materials.uploader:id,name',
+            ]),
             'activities.user:id,name,role',
         ]);
     }

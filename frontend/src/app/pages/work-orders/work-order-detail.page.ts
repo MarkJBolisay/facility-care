@@ -1,21 +1,31 @@
-import { DatePipe, DecimalPipe, NgTemplateOutlet } from '@angular/common';
-import { Component, computed, inject, input, signal } from '@angular/core';
+import { DatePipe, DecimalPipe } from '@angular/common';
+import { Component, OnDestroy, computed, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { NavController } from '@ionic/angular';
 import { ApiService, errorMessage } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
 import { pickPhoto, resizeImage } from '../../core/image';
-import { EQUIPMENT_CONDITIONS, WorkOrder, WorkOrderMaterial, WorkOrderPhoto, equipmentIcon, toneOf } from '../../core/models';
+import {
+  EQUIPMENT_CONDITIONS,
+  REPAIR_STAGES,
+  STAGE_ORDER,
+  WorkOrder,
+  WorkOrderMaterial,
+  equipmentIcon,
+  labelOf,
+  toneOf,
+} from '../../core/models';
 import { ActivityComponent } from '../../shared/activity';
 import { UiService } from '../../core/ui.service';
 import { IONIC } from '../../shared/ionic';
 import { SHARED } from '../../shared/ui';
 import { CameraService } from '../../shared/camera';
+import { RepairTimelineComponent, buildWorkOrderTimeline } from '../../shared/timeline';
 
 @Component({
   selector: 'app-work-order-detail',
-  imports: [...IONIC, ...SHARED, FormsModule, RouterLink, DatePipe, DecimalPipe, NgTemplateOutlet, ActivityComponent],
+  imports: [...IONIC, ...SHARED, FormsModule, RouterLink, DatePipe, DecimalPipe, ActivityComponent, RepairTimelineComponent],
   template: `
     <ion-header>
       <ion-toolbar>
@@ -37,6 +47,7 @@ import { CameraService } from '../../shared/camera';
             <a [href]="w.report.photo_url" target="_blank"><img class="hero-photo" [src]="w.report.photo_url" alt="Reported issue" /></a>
           }
 
+          <!-- Current status -->
           <div class="panel">
             <h2 class="mt-0">{{ w.title }}</h2>
             <div class="pills">
@@ -45,9 +56,7 @@ import { CameraService } from '../../shared/camera';
               @if (w.type === 'preventive') { <ion-badge color="tertiary" class="pill">Preventive maintenance</ion-badge> }
               <ion-badge color="light" class="pill">{{ w.category | label: 'category' }}</ion-badge>
             </div>
-            @if (w.description) {
-              <p class="pre-wrap">{{ w.description }}</p>
-            }
+            @if (w.description) { <p class="pre-wrap">{{ w.description }}</p> }
             <dl class="kv">
               <dt>Location</dt>
               <dd>
@@ -70,8 +79,26 @@ import { CameraService } from '../../shared/camera';
                 </dd>
               }
               @if (w.started_at) {<dt>Started</dt><dd>{{ w.started_at | date: 'MMM d, y h:mm a' }}</dd>}
+              @if (w.nearing_completion_at) {<dt>Nearing completion</dt><dd>{{ w.nearing_completion_at | date: 'MMM d, y h:mm a' }}</dd>}
               @if (w.completed_at) {<dt>Completed</dt><dd>{{ w.completed_at | date: 'MMM d, y h:mm a' }}</dd>}
             </dl>
+          </div>
+
+          <!-- Five-stage indicator -->
+          <div class="panel stepper-panel">
+            <div class="stepper" aria-label="Repair progress">
+              @for (s of stages; track s.value; let i = $index) {
+                <div class="step" [class.done]="i < currentIndex()" [class.now]="i === currentIndex()" [class.upcoming]="i > currentIndex()">
+                  <span class="step-dot"><ion-icon [name]="i < currentIndex() ? 'checkmark' : s.icon" /></span>
+                  <span class="step-label">{{ s.label }}</span>
+                </div>
+              }
+            </div>
+            <div class="stage-track"><div class="stage-fill" [style.width.%]="progressPct()"></div></div>
+            <p class="stage-caption">
+              <strong>{{ stageTitle() }}</strong>
+              <span>{{ stageHint() }}</span>
+            </p>
           </div>
 
           @if (w.equipment; as e) {
@@ -88,260 +115,202 @@ import { CameraService } from '../../shared/camera';
             </ion-list>
           }
 
-          <!-- Maintenance personnel: guided repair steps -->
-          @if (guided()) {
-            <div class="section-title">Repair steps</div>
-            <div class="rsteps">
-              <!-- 1. Start -->
-              <div class="rstep" [class.done]="started()" [class.now]="step() === 1">
-                <div class="rstep-head">
-                  <i>@if (started()) {✓} @else {1}</i>
-                  <div>
-                    <strong>Start the repair</strong>
-                    <span>Tap this when you are at the location and begin working.</span>
-                  </div>
-                </div>
-                <div class="rstep-body">
-                  @if (!started()) {
-                    <ion-button expand="block" (click)="setStatus('in_progress')">
-                      <ion-icon slot="start" name="play-outline" /> Start repair
-                    </ion-button>
-                  } @else {
-                    <p class="rstep-note">
-                      Started {{ w.started_at | date: 'MMM d, h:mm a' }} ·
-                      <button type="button" class="link-btn" (click)="setStatus('pending')">Move back to pending</button>
-                    </p>
-                  }
+          <!-- Update Repair Status -->
+          @if (canWork() && w.status !== 'completed' && w.status !== 'cancelled') {
+            <div class="section-title">Update repair status</div>
+            <div class="panel stage-form">
+              <div class="stage-next">
+                <ion-icon [name]="nextStage().icon" />
+                <div>
+                  <strong>{{ nextStage().label }}</strong>
+                  <span>{{ nextStage().hint }}</span>
                 </div>
               </div>
 
-              <!-- 2. Before photos -->
-              <div class="rstep" [class.done]="started() && beforePhotos().length > 0" [class.now]="step() === 2" [class.locked]="!started()">
-                <div class="rstep-head">
-                  <i>@if (started() && beforePhotos().length) {✓} @else {2}</i>
-                  <div>
-                    <strong>Take a "before" photo</strong>
-                    <span>Show the problem before you fix it.</span>
-                  </div>
-                </div>
-                @if (started()) {
-                  <div class="rstep-body">
-                    <ng-container [ngTemplateOutlet]="photoGrid" [ngTemplateOutletContext]="{ $implicit: 'before' }" />
-                  </div>
-                }
-              </div>
-
-              <!-- 3. Materials -->
-              <div class="rstep" [class.done]="started() && !!w.materials?.length" [class.locked]="!started()">
-                <div class="rstep-head">
-                  <i>@if (started() && w.materials?.length) {✓} @else {3}</i>
-                  <div>
-                    <strong>Record materials &amp; equipment <em>(optional)</em></strong>
-                    <span>Parts you used and tools you needed.</span>
-                  </div>
-                </div>
-                @if (started()) {
-                  <div class="rstep-body"><ng-container [ngTemplateOutlet]="materialsBlock" /></div>
-                }
-              </div>
-
-              <!-- 4. After photos -->
-              <div class="rstep" [class.done]="started() && afterPhotos().length > 0" [class.now]="step() === 4" [class.locked]="!started()">
-                <div class="rstep-head">
-                  <i>@if (started() && afterPhotos().length) {✓} @else {4}</i>
-                  <div>
-                    <strong>Take an "after" photo</strong>
-                    <span>Show that it is fixed.</span>
-                  </div>
-                </div>
-                @if (started()) {
-                  <div class="rstep-body">
-                    <ng-container [ngTemplateOutlet]="photoGrid" [ngTemplateOutletContext]="{ $implicit: 'after' }" />
-                  </div>
-                }
-              </div>
-
-              <!-- 5. Completion report -->
-              <div class="rstep" [class.now]="step() === 5" [class.locked]="!started()">
-                <div class="rstep-head">
-                  <i>5</i>
-                  <div>
-                    <strong>Finish with a completion report</strong>
-                    <span>What you did. The reporter and the admin will be notified.</span>
-                  </div>
-                </div>
-                @if (started()) {
-                  <div class="rstep-body">
-                    <ion-list lines="full" class="rstep-form">
-                      <ion-item>
-                        <ion-textarea label="Actions taken *" labelPlacement="stacked" [autoGrow]="true" rows="3" placeholder="What did you do to fix it?" [(ngModel)]="completion.actions_taken" />
-                      </ion-item>
-                      <ion-item>
-                        <ion-textarea label="Remarks" labelPlacement="stacked" [autoGrow]="true" rows="2" placeholder="Recommendations, follow-ups, notes" [(ngModel)]="completion.remarks" />
-                      </ion-item>
-                      <ion-item>
-                        <ion-input label="Date completed" labelPlacement="stacked" type="datetime-local" [min]="completionMin()" [max]="completionMax()" [(ngModel)]="completion.completed_at" />
-                      </ion-item>
-                      @if (w.equipment) {
-                        <ion-item>
-                          <ion-select label="Equipment condition after repair" labelPlacement="stacked" interface="action-sheet" [(ngModel)]="completion.condition_after">
-                            @for (c of conditionsAfter; track c.value) {
-                              <ion-select-option [value]="c.value">{{ c.label }}</ion-select-option>
-                            }
-                          </ion-select>
-                        </ion-item>
-                      }
-                    </ion-list>
-                    @if (!afterPhotos().length) {
-                      <p class="small"><ion-text color="warning">Tip: add an "after" photo in step 4 first.</ion-text></p>
-                    }
-                    <ion-button expand="block" color="success" (click)="submitCompletion()">
-                      <ion-icon slot="start" name="checkmark-circle-outline" /> Complete repair
-                    </ion-button>
-                  </div>
-                }
-              </div>
-            </div>
-          } @else {
-            <!-- Status update -->
-            @if (canWork()) {
-              @if (w.status === 'pending') {
-                <ion-button expand="block" (click)="setStatus('in_progress')">
-                  <ion-icon slot="start" name="play-outline" /> Start repair (In Progress)
-                </ion-button>
-              } @else if (w.status === 'in_progress' && !showComplete()) {
-                <ion-button expand="block" color="success" (click)="openComplete()">
-                  <ion-icon slot="start" name="checkmark-circle-outline" /> Mark as completed
-                </ion-button>
-                <ion-button expand="block" fill="clear" color="medium" (click)="setStatus('pending')">Move back to Pending</ion-button>
+              @if (w.status !== 'pending') {
+                <ion-textarea
+                  label="Actions taken *"
+                  labelPlacement="stacked"
+                  [autoGrow]="true"
+                  rows="3"
+                  placeholder="What did you do? (e.g. replaced the broken switch and tested it)"
+                  [(ngModel)]="stageForm.actions_taken"
+                />
               }
-            }
 
-            <!-- Completion report form -->
-            @if (showComplete()) {
-              <div class="section-title">Completion report</div>
-              <div class="panel">
-                <ion-list lines="full">
-                  <ion-item>
-                    <ion-textarea label="Actions taken *" labelPlacement="stacked" [autoGrow]="true" rows="3" placeholder="What did you do to fix it?" [(ngModel)]="completion.actions_taken" />
-                  </ion-item>
-                  <ion-item>
-                    <ion-textarea label="Remarks" labelPlacement="stacked" [autoGrow]="true" rows="2" placeholder="Recommendations, follow-ups, notes" [(ngModel)]="completion.remarks" />
-                  </ion-item>
-                  <ion-item>
-                    <ion-input label="Date completed" labelPlacement="stacked" type="datetime-local" [min]="completionMin()" [max]="completionMax()" [(ngModel)]="completion.completed_at" />
-                  </ion-item>
-                  @if (w.equipment) {
-                    <ion-item>
-                      <ion-select label="Equipment condition after repair" labelPlacement="stacked" interface="action-sheet" [(ngModel)]="completion.condition_after">
-                        @for (c of conditionsAfter; track c.value) {
-                          <ion-select-option [value]="c.value">{{ c.label }}</ion-select-option>
-                        }
-                      </ion-select>
-                    </ion-item>
+              <ion-textarea
+                label="Remarks"
+                labelPlacement="stacked"
+                [autoGrow]="true"
+                rows="2"
+                maxlength="1000"
+                placeholder="Findings, follow-ups, recommendations"
+                [(ngModel)]="stageForm.remarks"
+              />
+              <div class="counter">{{ stageForm.remarks.length }}/1000</div>
+
+              @if (w.equipment && w.status === 'nearing_completion') {
+                <ion-select label="Equipment condition after repair" labelPlacement="stacked" interface="action-sheet" [(ngModel)]="stageForm.condition_after">
+                  @for (c of conditionsAfter; track c.value) {
+                    <ion-select-option [value]="c.value">{{ c.label }}</ion-select-option>
                   }
-                </ion-list>
-                @if (!afterPhotos().length) {
-                  <p class="small"><ion-text color="warning">Tip: add an "after" photo below before submitting.</ion-text></p>
-                }
-                <ion-button expand="block" color="success" (click)="submitCompletion()">Submit completion report</ion-button>
-                <ion-button expand="block" fill="clear" color="medium" (click)="showComplete.set(false)">Cancel</ion-button>
-              </div>
-            }
+                </ion-select>
+              }
 
-            @if (w.status === 'completed') {
-              <div class="section-title">Completion report</div>
-              <div class="panel">
-                <dl class="kv">
-                  <dt>Date completed</dt><dd>{{ w.completed_at | date: 'MMM d, y h:mm a' }}</dd>
-                  <dt>Actions taken</dt><dd class="pre-wrap">{{ w.actions_taken }}</dd>
-                  <dt>Remarks</dt><dd class="pre-wrap">{{ w.remarks || '—' }}</dd>
-                  @if (w.condition_after) { <dt>Condition after</dt><dd><app-badge kind="condition" [value]="w.condition_after" /></dd> }
-                </dl>
-                @if (canWork()) {
-                  <ion-button size="small" fill="clear" (click)="openComplete()">Edit report</ion-button>
-                }
-              </div>
-            }
+              @if (w.status === 'nearing_completion' && !materialCount() && !w.no_materials_reason) {
+                <p class="note warn"><ion-icon name="information-circle-outline" /> Record the materials used, or tap "No materials used" in the Materials Use card before completing.</p>
+              }
 
-            <!-- Before / after photos -->
-            @for (kind of photoKinds; track kind) {
-              <div class="section-title">{{ kind === 'before' ? 'Before repair' : 'After repair' }} photos</div>
-              <div class="panel">
-                <div class="photo-grid">
-                  @for (p of kind === 'before' ? beforePhotos() : afterPhotos(); track p.id) {
-                    <div class="photo">
-                      <a [href]="p.url" target="_blank"><img [src]="p.url" alt="" loading="lazy" /></a>
-                      @if (canEdit()) {
-                        <button class="remove" (click)="removePhoto(p)" aria-label="Remove photo"><ion-icon name="close-outline" /></button>
-                      }
+              <!-- Required photo proof -->
+              <div class="proof">
+                @if (stagePhotoPreview(); as preview) {
+                  <div class="proof-preview">
+                    <img [src]="preview" alt="Photo proof preview" />
+                    <div class="proof-actions">
+                      <ion-button size="small" fill="outline" (click)="pickStagePhoto('camera')"><ion-icon slot="start" name="camera-outline" /> Retake</ion-button>
+                      <ion-button size="small" fill="clear" color="danger" (click)="clearStagePhoto()">Remove</ion-button>
                     </div>
-                  }
-                  @if (canEdit()) {
-                    <button class="photo-add" (click)="addPhoto(kind)" [disabled]="uploading()">
-                      <span>
-                        @if (uploading() === kind) { <ion-spinner name="crescent" /> } @else { <ion-icon name="camera-outline" />Add }
-                      </span>
-                    </button>
-                  }
-                </div>
-                @if (!canEdit() && !(kind === 'before' ? beforePhotos() : afterPhotos()).length) {
-                  <p class="muted small mt-0">No photos.</p>
+                  </div>
+                } @else {
+                  <div class="proof-empty">
+                    <ion-icon name="camera-outline" />
+                    <span>Picture proof is required for this stage</span>
+                  </div>
+                  <div class="proof-buttons">
+                    <ion-button fill="outline" (click)="pickStagePhoto('camera')"><ion-icon slot="start" name="camera-outline" /> Take Photo</ion-button>
+                    <ion-button fill="outline" (click)="pickStagePhoto('gallery')"><ion-icon slot="start" name="images-outline" /> Choose from Gallery</ion-button>
+                  </div>
+                }
+              </div>
+
+              <ion-button
+                expand="block"
+                [color]="w.status === 'nearing_completion' ? 'success' : 'primary'"
+                [disabled]="savingStage()"
+                (click)="submitStage()"
+              >
+                @if (savingStage()) { <ion-spinner name="crescent" /> } @else {
+                  <ion-icon slot="start" [name]="w.status === 'nearing_completion' ? 'checkmark-circle-outline' : 'arrow-forward-outline'" />
+                  {{ actionLabel() }}
+                }
+              </ion-button>
+            </div>
+          }
+
+          <!-- Materials Use -->
+          <div class="section-title">Materials Use</div>
+          <div class="panel">
+            <div class="mat-head">
+              <div>
+                <strong>{{ materialCount() }} {{ materialCount() === 1 ? 'entry' : 'entries' }}</strong>
+                <span>{{ w.materials_cost ? ('₱' + (w.materials_cost | number: '1.2-2') + ' total cost') : 'No cost recorded' }}</span>
+              </div>
+              @if (materialCount()) {
+                <ion-button fill="clear" size="small" (click)="viewMaterials.set(!viewMaterials())">
+                  {{ viewMaterials() ? 'Hide' : 'View Materials' }}
+                </ion-button>
+              }
+            </div>
+
+            @if (w.no_materials_reason && !materialCount()) {
+              <div class="no-materials">
+                <ion-icon name="cube-outline" />
+                <div><strong>No materials used</strong><span>{{ w.no_materials_reason }}</span></div>
+              </div>
+            }
+
+            @if (viewMaterials() && materialCount()) {
+              <div class="mat-list">
+                @for (m of w.materials; track m.id) {
+                  <div class="mat-row">
+                    @if (m.photo_url) {
+                      <a [href]="m.photo_url" target="_blank" class="mat-photo"><img [src]="m.photo_url" alt="Photo of {{ m.name }}" loading="lazy" /></a>
+                    } @else {
+                      <span class="mat-photo placeholder"><ion-icon [name]="m.type === 'equipment' ? 'construct-outline' : 'cube-outline'" /></span>
+                    }
+                    <div class="mat-main">
+                      <strong>{{ m.name }}</strong>
+                      <span>{{ m.quantity }} {{ m.unit }} · {{ m.type === 'equipment' ? 'Equipment' : 'Material' }}</span>
+                      @if (m.purpose) { <span class="mat-purpose">{{ m.purpose }}</span> }
+                      @if (m.unit_cost) { <span class="mat-purpose">₱{{ m.unit_cost | number: '1.2-2' }} each</span> }
+                    </div>
+                    @if (canEditMaterials()) {
+                      <div class="mat-actions">
+                        <ion-button fill="clear" size="small" (click)="editMaterial(m)" aria-label="Edit material"><ion-icon slot="icon-only" name="create-outline" /></ion-button>
+                        <ion-button fill="clear" color="danger" size="small" (click)="removeMaterial(m)" aria-label="Remove material"><ion-icon slot="icon-only" name="trash-outline" /></ion-button>
+                      </div>
+                    }
+                  </div>
+                }
+              </div>
+            } @else if (materialCount() === 0 && !w.no_materials_reason) {
+              <p class="muted small">Nothing recorded yet.</p>
+            }
+
+            @if (canEditMaterials()) {
+              <div class="mat-actions-row">
+                <ion-button fill="outline" (click)="openMaterialForm()">
+                  <ion-icon slot="start" name="add-outline" /> {{ materialForm.id ? 'Edit material' : 'Add material' }}
+                </ion-button>
+                @if (!materialCount() && !w.no_materials_reason) {
+                  <ion-button fill="clear" color="medium" (click)="markNoMaterials()">No materials used</ion-button>
                 }
               </div>
             }
 
-            <!-- Materials and equipment -->
-            <div class="section-title">
-              Materials &amp; equipment used
-              @if (w.materials_cost) { <span>₱{{ w.materials_cost | number: '1.2-2' }}</span> }
-            </div>
-            <ion-list class="cards">
-              @for (m of w.materials; track m.id) {
-                <ion-item>
-                  <ion-icon slot="start" [name]="m.type === 'equipment' ? 'construct-outline' : 'cube-outline'" />
-                  <ion-label>
-                    <h3>{{ m.name }}</h3>
-                    <p>
-                      {{ m.quantity }} {{ m.unit }} · {{ m.type === 'equipment' ? 'Equipment' : 'Material' }}
-                      @if (m.unit_cost) { · ₱{{ m.unit_cost | number: '1.2-2' }} each }
-                    </p>
-                  </ion-label>
-                  @if (canEdit()) {
-                    <ion-button slot="end" fill="clear" color="danger" (click)="removeMaterial(m)"><ion-icon slot="icon-only" name="trash-outline" /></ion-button>
-                  }
-                </ion-item>
-              } @empty {
-                <p class="muted small">Nothing recorded yet.</p>
-              }
-            </ion-list>
-
-            @if (canEdit()) {
-              <div class="panel">
-                <ion-segment [(ngModel)]="material.type">
+            @if (showMaterialForm()) {
+              <div class="mat-form">
+                <ion-segment [(ngModel)]="materialForm.type">
                   <ion-segment-button value="material"><ion-label>Material</ion-label></ion-segment-button>
                   <ion-segment-button value="equipment"><ion-label>Equipment</ion-label></ion-segment-button>
                 </ion-segment>
-                <ion-list lines="full">
-                  <ion-item>
-                    <ion-input label="Name" labelPlacement="stacked" [placeholder]="material.type === 'material' ? 'e.g. PVC pipe 1/2&quot;' : 'e.g. Ladder'" [(ngModel)]="material.name" />
-                  </ion-item>
-                  <ion-row>
-                    <ion-col size="4"><ion-input label="Qty" labelPlacement="stacked" type="number" min="0" [(ngModel)]="material.quantity" /></ion-col>
-                    <ion-col size="4"><ion-input label="Unit" labelPlacement="stacked" placeholder="pcs" [(ngModel)]="material.unit" /></ion-col>
-                    <ion-col size="4"><ion-input label="Unit cost ₱" labelPlacement="stacked" type="number" min="0" [(ngModel)]="material.unit_cost" /></ion-col>
-                  </ion-row>
-                </ion-list>
-                <ion-button expand="block" fill="outline" (click)="addMaterial()">
-                  <ion-icon slot="start" name="add-outline" /> Add {{ material.type }}
-                </ion-button>
+                <ion-input label="Name *" labelPlacement="stacked" placeholder="e.g. PVC pipe 1/2&quot;" [(ngModel)]="materialForm.name" />
+                <ion-row>
+                  <ion-col size="4"><ion-input label="Qty *" labelPlacement="stacked" type="number" min="0" [(ngModel)]="materialForm.quantity" /></ion-col>
+                  <ion-col size="4"><ion-input label="Unit" labelPlacement="stacked" placeholder="pcs" [(ngModel)]="materialForm.unit" /></ion-col>
+                  <ion-col size="4"><ion-input label="Unit cost ₱" labelPlacement="stacked" type="number" min="0" [(ngModel)]="materialForm.unit_cost" /></ion-col>
+                </ion-row>
+                <ion-textarea label="Purpose / description *" labelPlacement="stacked" [autoGrow]="true" rows="2" placeholder="What was it used for?" [(ngModel)]="materialForm.purpose" />
+                @if (materialForm.preview) {
+                  <div class="proof-preview">
+                    <img [src]="materialForm.preview" alt="Material photo preview" />
+                    <div class="proof-actions">
+                      <ion-button size="small" fill="clear" color="danger" (click)="clearMaterialPhoto()">Remove photo</ion-button>
+                    </div>
+                  </div>
+                } @else {
+                  <div class="proof-buttons">
+                    <ion-button fill="outline" size="small" (click)="pickMaterialPhoto('camera')"><ion-icon slot="start" name="camera-outline" /> Take Photo *</ion-button>
+                    <ion-button fill="outline" size="small" (click)="pickMaterialPhoto('gallery')"><ion-icon slot="start" name="images-outline" /> Gallery *</ion-button>
+                  </div>
+                }
+                <div class="mat-form-actions">
+                  @if (materialForm.id) {
+                    <ion-button fill="clear" color="medium" (click)="cancelMaterialForm()">Cancel</ion-button>
+                  }
+                  <ion-button (click)="saveMaterial()" [disabled]="savingMaterial()">
+                    @if (savingMaterial()) { <ion-spinner name="crescent" /> } @else {
+                      <ion-icon slot="start" name="save-outline" /> {{ materialForm.id ? 'Save changes' : 'Add material' }}
+                    }
+                  </ion-button>
+                </div>
               </div>
             }
+          </div>
 
+          <!-- Progress timeline -->
+          <div class="section-title">Progress timeline</div>
+          <div class="panel">
+            <app-repair-timeline [items]="timeline()" />
+          </div>
+
+          @if (w.actions_taken && w.status !== 'completed') {
+            <div class="section-title">Work done so far</div>
+            <div class="panel"><p class="pre-wrap mt-0">{{ w.actions_taken }}</p></div>
           }
 
           @if (w.activities?.length) {
-            <div class="section-title">Activity history</div>
+            <div class="section-title">Activity log</div>
             <div class="panel"><app-activity [items]="w.activities" /></div>
           }
 
@@ -354,71 +323,87 @@ import { CameraService } from '../../shared/camera';
       } @else {
         <div class="ion-text-center ion-padding"><ion-spinner /></div>
       }
-
-      <!-- Photo grid used by the repair steps -->
-      <ng-template #photoGrid let-kind>
-        <div class="photo-grid">
-          @for (p of kind === 'before' ? beforePhotos() : afterPhotos(); track p.id) {
-            <div class="photo">
-              <a [href]="p.url" target="_blank"><img [src]="p.url" alt="" loading="lazy" /></a>
-              <button class="remove" (click)="removePhoto(p)" aria-label="Remove photo"><ion-icon name="close-outline" /></button>
-            </div>
-          }
-          <button class="photo-add" (click)="addPhoto(kind)" [disabled]="uploading()">
-            <span>
-              @if (uploading() === kind) { <ion-spinner name="crescent" /> } @else { <ion-icon name="camera-outline" />Add photo }
-            </span>
-          </button>
-        </div>
-      </ng-template>
-
-      <!-- Materials list + add form used by the repair steps -->
-      <ng-template #materialsBlock>
-        @if (wo(); as w) {
-          @for (m of w.materials; track m.id) {
-            <div class="rmat">
-              <ion-icon [name]="m.type === 'equipment' ? 'construct-outline' : 'cube-outline'" />
-              <div>
-                <strong>{{ m.name }}</strong>
-                <span>{{ m.quantity }} {{ m.unit }}@if (m.unit_cost) { · ₱{{ m.unit_cost | number: '1.2-2' }} each }</span>
-              </div>
-              <ion-button fill="clear" color="danger" size="small" (click)="removeMaterial(m)" aria-label="Remove">
-                <ion-icon slot="icon-only" name="trash-outline" />
-              </ion-button>
-            </div>
-          }
-          @if (w.materials_cost) {
-            <p class="rstep-note">Total cost: <strong>₱{{ w.materials_cost | number: '1.2-2' }}</strong></p>
-          }
-          @if (showMaterialForm()) {
-            <ion-segment [(ngModel)]="material.type">
-              <ion-segment-button value="material"><ion-label>Material</ion-label></ion-segment-button>
-              <ion-segment-button value="equipment"><ion-label>Equipment</ion-label></ion-segment-button>
-            </ion-segment>
-            <ion-list lines="full" class="rstep-form">
-              <ion-item>
-                <ion-input label="Name" labelPlacement="stacked" [placeholder]="material.type === 'material' ? 'e.g. PVC pipe 1/2&quot;' : 'e.g. Ladder'" [(ngModel)]="material.name" />
-              </ion-item>
-              <ion-row>
-                <ion-col size="4"><ion-input label="Qty" labelPlacement="stacked" type="number" min="0" [(ngModel)]="material.quantity" /></ion-col>
-                <ion-col size="4"><ion-input label="Unit" labelPlacement="stacked" placeholder="pcs" [(ngModel)]="material.unit" /></ion-col>
-                <ion-col size="4"><ion-input label="Unit cost ₱" labelPlacement="stacked" type="number" min="0" [(ngModel)]="material.unit_cost" /></ion-col>
-              </ion-row>
-            </ion-list>
-            <ion-button expand="block" fill="outline" (click)="addMaterial()">
-              <ion-icon slot="start" name="add-outline" /> Add {{ material.type }}
-            </ion-button>
-          } @else {
-            <ion-button expand="block" fill="outline" (click)="showMaterialForm.set(true)">
-              <ion-icon slot="start" name="add-outline" /> Add material or equipment
-            </ion-button>
-          }
-        }
-      </ng-template>
     </ion-content>
   `,
+  styles: [
+    `
+      /* Five-stage stepper */
+      .stepper-panel { padding-bottom: 14px; }
+      .stepper { display: flex; justify-content: space-between; gap: 2px; }
+      .step { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; min-width: 0; }
+      .step-dot {
+        display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%;
+        background: var(--fc-page, #f4f6fa); border: 2px solid var(--fc-line, #e3e9f2);
+        color: var(--fc-muted, #7a8394); font-size: 17px;
+      }
+      .step-label { font-size: 0.64rem; font-weight: 700; letter-spacing: 0.01em; color: var(--fc-muted, #7a8394); line-height: 1.15; }
+      .step.done .step-dot { background: var(--ion-color-success, #16a34a); border-color: var(--ion-color-success, #16a34a); color: #fff; }
+      .step.done .step-label { color: var(--ion-color-success, #16a34a); }
+      .step.now .step-dot {
+        background: var(--ion-color-primary, #2160e0); border-color: var(--ion-color-primary, #2160e0); color: #fff;
+        box-shadow: 0 0 0 4px rgba(var(--ion-color-primary-rgb, 33, 96, 224), 0.18);
+      }
+      .step.now .step-label { color: var(--ion-color-primary, #2160e0); }
+      .step.upcoming { opacity: 0.55; }
+      .stage-track { height: 6px; border-radius: 999px; background: var(--fc-page, #f4f6fa); margin: 14px 0 10px; overflow: hidden; }
+      .stage-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--ion-color-primary, #2160e0), var(--ion-color-success, #16a34a)); transition: width 0.3s ease; }
+      .stage-caption { margin: 0; display: flex; flex-direction: column; gap: 2px; }
+      .stage-caption strong { font-size: 0.92rem; }
+      .stage-caption span { font-size: 0.78rem; color: var(--fc-muted, #7a8394); }
+
+      /* Stage form */
+      .stage-next {
+        display: flex; align-items: center; gap: 12px; padding: 12px; margin-bottom: 10px;
+        border-radius: 14px; background: var(--fc-page, #f5f8fd);
+      }
+      .stage-next ion-icon { font-size: 26px; color: var(--ion-color-primary, #2160e0); flex-shrink: 0; }
+      .stage-next div { display: flex; flex-direction: column; }
+      .stage-next strong { font-size: 0.95rem; }
+      .stage-next span { font-size: 0.78rem; color: var(--fc-muted, #7a8394); }
+      .counter { text-align: right; font-size: 0.72rem; color: var(--fc-muted, #7a8394); margin: -4px 4px 8px; }
+      .note { display: flex; align-items: flex-start; gap: 6px; font-size: 0.8rem; margin: 8px 0; }
+      .note.warn { color: var(--ion-color-warning-shade, #b45309); }
+
+      .proof { margin: 10px 0 14px; }
+      .proof-empty {
+        display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 18px;
+        border: 1.5px dashed var(--fc-line, #cfd8e6); border-radius: 14px; color: var(--fc-muted, #7a8394); font-size: 0.82rem;
+      }
+      .proof-empty ion-icon { font-size: 26px; }
+      .proof-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+      .proof-buttons ion-button { flex: 1 1 160px; margin: 0; }
+      .proof-preview img {
+        display: block; width: 100%; max-height: 240px; object-fit: cover; border-radius: 14px; border: 1px solid var(--fc-line, #e3e9f2);
+      }
+      .proof-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+
+      /* Materials */
+      .mat-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+      .mat-head div { display: flex; flex-direction: column; }
+      .mat-head strong { font-size: 0.95rem; }
+      .mat-head span { font-size: 0.76rem; color: var(--fc-muted, #7a8394); }
+      .no-materials { display: flex; gap: 10px; padding: 10px 12px; margin-top: 8px; border-radius: 12px; background: var(--fc-page, #f5f8fd); }
+      .no-materials ion-icon { font-size: 22px; color: var(--fc-muted, #7a8394); flex-shrink: 0; }
+      .no-materials div { display: flex; flex-direction: column; }
+      .no-materials strong { font-size: 0.86rem; }
+      .no-materials span { font-size: 0.78rem; color: var(--fc-muted, #7a8394); }
+      .mat-list { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+      .mat-row { display: flex; align-items: flex-start; gap: 10px; }
+      .mat-photo { width: 54px; height: 54px; flex: 0 0 54px; border-radius: 12px; overflow: hidden; border: 1px solid var(--fc-line, #e3e9f2); }
+      .mat-photo img { width: 100%; height: 100%; object-fit: cover; }
+      .mat-photo.placeholder { display: grid; place-items: center; background: var(--fc-page, #f5f8fd); color: var(--fc-muted, #7a8394); font-size: 22px; }
+      .mat-main { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+      .mat-main strong { font-size: 0.9rem; }
+      .mat-main span { font-size: 0.76rem; color: var(--fc-muted, #7a8394); }
+      .mat-main .mat-purpose { color: var(--fc-text, #5b6475); }
+      .mat-actions { display: flex; flex-shrink: 0; }
+      .mat-actions-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+      .mat-form { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--fc-line, #e3e9f2); }
+      .mat-form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+    `,
+  ],
 })
-export class WorkOrderDetailPage {
+export class WorkOrderDetailPage implements OnDestroy {
   private api = inject(ApiService);
   private ui = inject(UiService);
   private camera = inject(CameraService);
@@ -428,51 +413,79 @@ export class WorkOrderDetailPage {
 
   readonly id = input.required<string>();
   protected loadError = signal('');
-
   protected wo = signal<WorkOrder | null>(null);
-  protected showComplete = signal(false);
-  protected uploading = signal<'before' | 'after' | null>(null);
-  protected photoKinds = ['before', 'after'] as const;
+  protected savingStage = signal(false);
+  protected savingMaterial = signal(false);
+  protected viewMaterials = signal(true);
+  protected showMaterialForm = signal(false);
 
-  protected beforePhotos = computed(() => this.wo()?.photos?.filter((p) => p.type === 'before') ?? []);
-  protected afterPhotos = computed(() => this.wo()?.photos?.filter((p) => p.type === 'after') ?? []);
+  protected stages = REPAIR_STAGES;
+  protected conditionsAfter = EQUIPMENT_CONDITIONS.filter((c) => c.value !== 'under_maintenance');
+  protected eqIcon = equipmentIcon;
 
-  /** Assigned personnel (or admin) may update status. */
+  protected stageForm = { actions_taken: '', remarks: '', condition_after: 'operational' };
+  protected stagePhoto = signal<Blob | null>(null);
+  protected stagePhotoPreview = signal<string | null>(null);
+
+  protected materialForm = this.blankMaterial();
+  protected materialPhoto = signal<Blob | null>(null);
+
+  private objectUrls: string[] = [];
+
+  protected timeline = computed(() => {
+    const w = this.wo();
+    return w ? buildWorkOrderTimeline(w) : [];
+  });
+
+  protected currentIndex = computed(() => STAGE_ORDER[this.wo()?.status ?? ''] ?? 0);
+  protected progressPct = computed(() => (this.currentIndex() / (REPAIR_STAGES.length - 1)) * 100);
+  protected stageTitle = computed(() => {
+    const w = this.wo();
+    if (!w) return '';
+    if (w.status === 'cancelled') return 'Cancelled';
+    return REPAIR_STAGES[this.currentIndex()]?.label ?? labelOf('status', w.status);
+  });
+  protected stageHint = computed(() => {
+    const w = this.wo();
+    if (!w) return '';
+    if (w.status === 'cancelled') return 'This work order was cancelled by the admin.';
+    return REPAIR_STAGES[this.currentIndex()]?.hint ?? '';
+  });
+  protected nextStage = computed(() => {
+    const w = this.wo();
+    const index = (STAGE_ORDER[w?.status ?? ''] ?? 0) + 1;
+    return REPAIR_STAGES[Math.min(index, REPAIR_STAGES.length - 1)];
+  });
+  protected actionLabel = computed(() => {
+    const status = this.wo()?.status;
+    if (status === 'pending') return 'Start repair';
+    if (status === 'in_progress') return 'Mark as nearing completion';
+    return 'Complete repair';
+  });
+
+  protected materialCount = computed(() => this.wo()?.materials?.length ?? 0);
+
   protected canWork = computed(() => {
     const w = this.wo();
     const u = this.auth.user();
     if (!w || !u || w.status === 'cancelled') return false;
     return u.role === 'admin' || (u.role === 'maintenance' && w.assigned_to === u.id);
   });
-
-  /** The assigned maintenance person gets step-by-step guidance until the job is done. */
-  protected guided = computed(() => {
-    const w = this.wo();
-    return !!w && this.auth.isMaintenance() && this.canWork() && (w.status === 'pending' || w.status === 'in_progress');
+  protected canEditMaterials = computed(() => {
+    const status = this.wo()?.status;
+    return this.canWork() && (status === 'in_progress' || status === 'nearing_completion');
   });
-  protected started = computed(() => this.wo()?.status === 'in_progress');
-  /** The step to do next: 1 start · 2 before photo · 4 after photo · 5 report (3 materials is optional). */
-  protected step = computed(() => {
-    if (!this.started()) return 1;
-    if (!this.beforePhotos().length) return 2;
-    if (!this.afterPhotos().length) return 4;
-    return 5;
-  });
-  protected showMaterialForm = signal(false);
 
-  /** Photos/materials stay editable for admin; for personnel until completed. */
-  protected canEdit = computed(() => this.canWork() && (this.auth.isAdmin() || this.wo()?.status !== 'completed'));
-
-  completion = { actions_taken: '', remarks: '', completed_at: '', condition_after: 'operational' };
-  protected conditionsAfter = EQUIPMENT_CONDITIONS.filter((c) => c.value !== 'under_maintenance');
-  protected eqIcon = equipmentIcon;
   protected conditionTone(c: string): string {
     return toneOf('condition', c);
   }
-  material = this.blankMaterial();
 
   ionViewWillEnter(): void {
     void this.load();
+  }
+
+  ngOnDestroy(): void {
+    this.revokeUrls();
   }
 
   async load(): Promise<void> {
@@ -480,123 +493,189 @@ export class WorkOrderDetailPage {
     try {
       const w = await this.api.get<WorkOrder>(`work-orders/${this.id()}`);
       this.wo.set(w);
-      // the completion form is part of the guided steps, so give it its defaults up front
-      if (w.status !== 'completed' && !this.completion.completed_at) this.resetCompletion(w);
+      if (w.status !== 'completed') {
+        this.stageForm.actions_taken = w.actions_taken ?? '';
+        this.stageForm.remarks = '';
+        this.stageForm.condition_after = w.condition_after ?? 'operational';
+      }
     } catch (err) {
       this.loadError.set(errorMessage(err));
     }
   }
 
-  async setStatus(status: 'pending' | 'in_progress'): Promise<void> {
-    const w = await this.ui.busy(() => this.api.post<WorkOrder>(`work-orders/${this.id()}/status`, { status }));
-    if (w) {
-      this.wo.set(w);
-      await this.ui.toast(status === 'in_progress' ? 'Repair started. Next: take a "before" photo.' : 'Moved back to pending.');
-    }
-  }
-
-  openComplete(): void {
-    this.resetCompletion(this.wo()!);
-    this.showComplete.set(true);
-  }
-
-  /** Date completed range: from when the repair started up to now (same "YYYY-MM-DDTHH:mm" format as the input). */
-  protected completionMin(): string | null {
-    const started = this.wo()?.started_at;
-    return started ? toLocalInput(new Date(started)) : null;
-  }
-  protected completionMax(): string {
-    return toLocalInput(new Date());
-  }
-
-  private resetCompletion(w: WorkOrder): void {
-    this.completion = {
-      actions_taken: w.actions_taken ?? '',
-      remarks: w.remarks ?? '',
-      completed_at: toLocalInput(w.completed_at ? new Date(w.completed_at) : new Date()),
-      condition_after: w.condition_after ?? 'operational',
-    };
-  }
-
-  async submitCompletion(): Promise<void> {
-    if (!this.completion.actions_taken.trim()) {
-      await this.ui.toast('Please describe the actions taken.', 'warning');
-      return;
-    }
-    // the picker limits the range, but a typed date can still be outside it
-    const done = this.completion.completed_at;
-    if (done && done > this.completionMax()) {
-      await this.ui.toast("Date completed can't be in the future.", 'warning');
-      return;
-    }
-    if (done && this.completionMin() && done < this.completionMin()!) {
-      await this.ui.toast("Date completed can't be before the repair started.", 'warning');
-      return;
-    }
-    const w = await this.ui.busy(() =>
-      this.api.post<WorkOrder>(`work-orders/${this.id()}/status`, {
-        status: 'completed',
-        ...this.completion,
-        completed_at: this.completion.completed_at ? new Date(this.completion.completed_at).toISOString() : null,
-      }),
-    );
-    if (w) {
-      const wasGuided = this.guided();
-      this.wo.set(w);
-      this.showComplete.set(false);
-      await this.ui.toast('Repair completed. The reporter has been notified.', 'success');
-      // back to the dashboard, where the next task is waiting
-      if (wasGuided) await this.nav.navigateBack('/tabs/home');
-    }
-  }
-
-  async addPhoto(type: 'before' | 'after'): Promise<void> {
-    const source = await this.ui.photoSource(type === 'before' ? 'Before photo' : 'After photo');
-    if (!source) return;
+  /** Take Photo or Choose from Gallery, then keep a local preview. */
+  async pickStagePhoto(source: 'camera' | 'gallery'): Promise<void> {
     const file = source === 'camera' ? await this.camera.takePhoto() : await pickPhoto(false);
     if (!file) return;
-    this.uploading.set(type);
-    try {
-      const photo = await this.api.upload<WorkOrderPhoto>(`work-orders/${this.id()}/photos`, {
-        type,
-        photo: await resizeImage(file),
-      });
-      this.patch((w) => ({ ...w, photos: [...(w.photos ?? []), photo] }));
-    } catch (err) {
-      await this.ui.error(err);
-    } finally {
-      this.uploading.set(null);
-    }
+    this.clearStagePhoto();
+    const resized = await resizeImage(file);
+    this.stagePhoto.set(resized);
+    const url = URL.createObjectURL(resized);
+    this.objectUrls.push(url);
+    this.stagePhotoPreview.set(url);
   }
 
-  async removePhoto(photo: WorkOrderPhoto): Promise<void> {
-    if (!(await this.ui.confirm('Remove photo', 'Delete this photo?', 'Delete', true))) return;
-    const ok = await this.ui.busy(() => this.api.delete(`work-order-photos/${photo.id}`).then(() => true));
-    if (ok) this.patch((w) => ({ ...w, photos: w.photos?.filter((p) => p.id !== photo.id) }));
+  clearStagePhoto(): void {
+    this.stagePhoto.set(null);
+    this.stagePhotoPreview.set(null);
   }
 
-  async addMaterial(): Promise<void> {
-    if (!this.material.name.trim() || !(Number(this.material.quantity) > 0)) {
-      await this.ui.toast('Enter a name and quantity.', 'warning');
+  async submitStage(): Promise<void> {
+    const w = this.wo();
+    if (!w) return;
+    const photo = this.stagePhoto();
+    if (!photo) {
+      await this.ui.toast('Add a photo of this stage. Picture proof is required.', 'warning');
       return;
     }
-    try {
-      await this.api.post<WorkOrderMaterial>(`work-orders/${this.id()}/materials`, {
-        ...this.material,
-        unit_cost: this.material.unit_cost === '' ? null : this.material.unit_cost,
-      });
-      this.material = { ...this.blankMaterial(), type: this.material.type };
-      this.showMaterialForm.set(false);
-      await this.load(); // refresh totals
-    } catch (err) {
-      await this.ui.error(err);
+    if (w.status !== 'pending' && !this.stageForm.actions_taken.trim()) {
+      await this.ui.toast('Describe the actions taken.', 'warning');
+      return;
     }
+    if (
+      w.status === 'nearing_completion' &&
+      !this.materialCount() &&
+      !w.no_materials_reason
+    ) {
+      await this.ui.toast('Record the materials used or choose "No materials used" first.', 'warning');
+      return;
+    }
+    if (w.status === 'nearing_completion') {
+      const ok = await this.ui.confirm('Complete repair', 'Are you sure you want to mark this repair as completed?', 'Yes, complete');
+      if (!ok) return;
+    }
+
+    const next = w.status === 'pending' ? 'in_progress' : w.status === 'in_progress' ? 'nearing_completion' : 'completed';
+    this.savingStage.set(true);
+    const updated = await this.ui.busy(() =>
+      this.api.upload<WorkOrder>(`work-orders/${this.id()}/stage`, {
+        stage: next,
+        photo,
+        actions_taken: w.status === 'pending' ? null : this.stageForm.actions_taken,
+        remarks: this.stageForm.remarks,
+        condition_after: w.equipment && next === 'completed' ? this.stageForm.condition_after : null,
+      }),
+    );
+    this.savingStage.set(false);
+    if (!updated) return;
+
+    this.wo.set(updated);
+    this.clearStagePhoto();
+    this.stageForm = { actions_taken: updated.actions_taken ?? '', remarks: '', condition_after: updated.condition_after ?? 'operational' };
+
+    if (updated.status === 'completed') {
+      await this.ui.toast('Repair completed. The reporter and admin were notified.', 'success');
+    } else if (updated.status === 'nearing_completion') {
+      await this.ui.toast('Marked as nearing completion. Add the final details to finish.', 'success');
+    } else {
+      await this.ui.toast('Repair started. Record the materials you use, then mark it nearing completion.', 'success');
+    }
+  }
+
+  // ----- Materials ---------------------------------------------------------
+
+  openMaterialForm(): void {
+    this.materialForm = this.blankMaterial();
+    this.showMaterialForm.set(true);
+    this.viewMaterials.set(true);
+  }
+
+  editMaterial(m: WorkOrderMaterial): void {
+    this.clearMaterialPhoto();
+    this.materialForm = {
+      id: m.id,
+      name: m.name,
+      type: m.type,
+      quantity: m.quantity,
+      unit: m.unit ?? '',
+      unit_cost: m.unit_cost ?? '',
+      purpose: m.purpose ?? '',
+      preview: m.photo_url,
+    } as typeof this.materialForm;
+    this.showMaterialForm.set(true);
+    this.viewMaterials.set(true);
+  }
+
+  cancelMaterialForm(): void {
+    this.materialForm = this.blankMaterial();
+    this.showMaterialForm.set(false);
+  }
+
+  async pickMaterialPhoto(source: 'camera' | 'gallery'): Promise<void> {
+    const file = source === 'camera' ? await this.camera.takePhoto() : await pickPhoto(false);
+    if (!file) return;
+    const resized = await resizeImage(file);
+    this.materialPhoto.set(resized);
+    const url = URL.createObjectURL(resized);
+    this.objectUrls.push(url);
+    this.materialForm.preview = url;
+  }
+
+  clearMaterialPhoto(): void {
+    this.materialPhoto.set(null);
+    this.materialForm.preview = null;
+  }
+
+  async saveMaterial(): Promise<void> {
+    const f = this.materialForm;
+    if (!f.name.trim() || !(Number(f.quantity) > 0)) {
+      await this.ui.toast('Enter a material name and quantity.', 'warning');
+      return;
+    }
+    if (!f.purpose.trim()) {
+      await this.ui.toast('Describe what the material was used for.', 'warning');
+      return;
+    }
+    if (!this.materialPhoto() && !f.id) {
+      await this.ui.toast('Add a photo of the material. Picture proof is required.', 'warning');
+      return;
+    }
+
+    this.savingMaterial.set(true);
+    const saved = await this.ui.busy(() =>
+      this.api.upload<WorkOrderMaterial>(
+        f.id ? `work-orders/${this.id()}/materials/${f.id}` : `work-orders/${this.id()}/materials`,
+        {
+          name: f.name.trim(),
+          type: f.type,
+          quantity: f.quantity,
+          unit: f.unit,
+          unit_cost: f.unit_cost === '' ? null : f.unit_cost,
+          purpose: f.purpose.trim(),
+          photo: this.materialPhoto(),
+        },
+      ),
+    );
+    this.savingMaterial.set(false);
+    if (!saved) return;
+    this.materialForm = this.blankMaterial();
+    this.materialPhoto.set(null);
+    this.showMaterialForm.set(false);
+    await this.load();
+    await this.ui.toast(f.id ? 'Material updated.' : 'Material recorded.', 'success');
   }
 
   async removeMaterial(m: WorkOrderMaterial): Promise<void> {
+    if (!(await this.ui.confirm('Remove material', `Remove "${m.name}"?`, 'Remove', true))) return;
     const ok = await this.ui.busy(() => this.api.delete(`work-order-materials/${m.id}`).then(() => true));
     if (ok) await this.load();
   }
+
+  async markNoMaterials(): Promise<void> {
+    const reason = await this.ui.prompt('No materials used', 'Explain why no materials were needed (required)', 'Save');
+    if (reason === null) return;
+    if (reason.trim().length < 5) {
+      await this.ui.toast('Please explain why no materials were used.', 'warning');
+      return;
+    }
+    const updated = await this.ui.busy(() => this.api.post<WorkOrder>(`work-orders/${this.id()}/no-materials`, { reason }));
+    if (updated) {
+      this.wo.set(updated);
+      await this.ui.toast('Saved. No materials were used for this repair.', 'success');
+    }
+  }
+
+  // ----- Admin -------------------------------------------------------------
 
   async cancel(): Promise<void> {
     if (!(await this.ui.confirm('Cancel work order', 'The assigned personnel will be notified.', 'Cancel work order', true))) return;
@@ -610,18 +689,21 @@ export class WorkOrderDetailPage {
     if (ok) await this.router.navigateByUrl('/tabs/work-orders', { replaceUrl: true });
   }
 
-  private patch(fn: (w: WorkOrder) => WorkOrder): void {
-    const w = this.wo();
-    if (w) this.wo.set(fn(w));
-  }
-
   private blankMaterial() {
-    return { name: '', type: 'material' as 'material' | 'equipment', quantity: 1 as number | string, unit: '', unit_cost: '' as number | string };
+    return {
+      id: null as number | null,
+      name: '',
+      type: 'material' as 'material' | 'equipment',
+      quantity: 1 as number | string,
+      unit: '',
+      unit_cost: '' as number | string,
+      purpose: '',
+      preview: null as string | null,
+    };
   }
-}
 
-/** Date → "YYYY-MM-DDTHH:mm" in local time, for <input type="datetime-local">. */
-function toLocalInput(d: Date): string {
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  private revokeUrls(): void {
+    for (const url of this.objectUrls) URL.revokeObjectURL(url);
+    this.objectUrls = [];
+  }
 }

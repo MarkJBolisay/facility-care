@@ -18,7 +18,7 @@ class FacilityController extends Controller
     {
         $query = Facility::with('parent')
             ->withCount([
-                'reports as open_reports_count' => fn ($q) => $q->whereIn('status', ['pending', 'approved', 'in_progress']),
+                'reports as open_reports_count' => fn ($q) => $q->whereIn('status', Report::OPEN_STATUSES),
                 'workOrders as total_work_orders_count',
             ])
             ->orderByRaw("CASE type WHEN 'building' THEN 0 ELSE 1 END")
@@ -102,7 +102,7 @@ class FacilityController extends Controller
             'facility' => $facility->load(['parent', 'children']),
             'summary' => [
                 'total_reports' => $reports->count(),
-                'open_reports' => $reports->whereIn('status', ['pending', 'approved', 'in_progress'])->count(),
+                'open_reports' => $reports->whereIn('status', Report::OPEN_STATUSES)->count(),
                 'total_repairs' => $workOrders->count(),
                 'completed_repairs' => $completed->count(),
                 'materials_cost' => round($workOrders->sum('materials_cost'), 2),

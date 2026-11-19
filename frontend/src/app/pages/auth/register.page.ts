@@ -58,7 +58,7 @@ const STUDENT_ID = /^PPY\d{4}-\d{5}$/;
           </div>
 
           <h1>Create Your Account</h1>
-          <p class="lx-sub">For students, faculty, and staff. Use your school email.</p>
+          <p class="lx-sub">For students, faculty, and staff. Use your email.</p>
 
           <form (ngSubmit)="submit()" novalidate>
             <span class="lx-label">I am a</span>
@@ -100,7 +100,7 @@ const STUDENT_ID = /^PPY\d{4}-\d{5}$/;
             </div>
             </div>
 
-            <label class="lx-label" for="reg-email"><ion-icon name="mail" /> School Email</label>
+            <label class="lx-label" for="reg-email"><ion-icon name="mail" /> Email</label>
             <div class="auth-field">
               <input
                 id="reg-email"
@@ -244,7 +244,7 @@ export class RegisterPage {
   async submit(): Promise<void> {
     const f = this.form;
     if (!f.name.trim() || !f.email.trim() || !f.password) {
-      this.error.set('Enter your full name, school email and password.');
+      this.error.set('Enter your full name, email and password.');
       return;
     }
     if (f.role === 'student' && !STUDENT_ID.test(f.id_number.trim())) {

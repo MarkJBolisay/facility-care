@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class WorkOrderPhoto extends Model
 {
-    protected $fillable = ['work_order_id', 'type', 'path', 'uploaded_by'];
+    protected $fillable = ['work_order_id', 'type', 'stage', 'remarks', 'path', 'uploaded_by'];
 
     protected $appends = ['url'];
 
@@ -19,5 +19,10 @@ class WorkOrderPhoto extends Model
     public function workOrder(): BelongsTo
     {
         return $this->belongsTo(WorkOrder::class);
+    }
+
+    public function uploader(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'uploaded_by');
     }
 }

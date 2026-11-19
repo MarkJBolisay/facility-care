@@ -125,7 +125,11 @@ export interface Report {
 export interface WorkOrderPhoto {
   id: number;
   type: 'before' | 'after';
+  /** reported | pending | in_progress | nearing_completion | completed */
+  stage: string | null;
+  remarks: string | null;
   url: string;
+  uploader?: { id: number; name: string } | null;
   created_at: string;
 }
 
@@ -136,6 +140,21 @@ export interface WorkOrderMaterial {
   quantity: number;
   unit: string | null;
   unit_cost: number | null;
+  purpose: string | null;
+  photo: string | null;
+  photo_url: string | null;
+  added_by: number | null;
+  uploader?: { id: number; name: string } | null;
+  used_at: string | null;
+}
+
+/** One stage of the repair timeline, as stored by the backend. */
+export interface WorkOrderStage {
+  id: number;
+  stage: string;
+  remarks: string | null;
+  user?: { id: number; name: string; role: string } | null;
+  created_at: string;
 }
 
 export interface WorkOrder {
@@ -161,10 +180,15 @@ export interface WorkOrder {
   assigned_at: string | null;
   due_date: string | null;
   started_at: string | null;
+  nearing_completion_at: string | null;
   completed_at: string | null;
+  completed_by: number | null;
+  completer?: { id: number; name: string } | null;
   actions_taken: string | null;
   remarks: string | null;
+  no_materials_reason: string | null;
   photos?: WorkOrderPhoto[];
+  stages?: WorkOrderStage[];
   materials?: WorkOrderMaterial[];
   materials_cost: number;
   created_at: string;
@@ -221,6 +245,7 @@ export const REPORT_STATUSES: Option[] = [
   { value: 'pending', label: 'Pending' },
   { value: 'approved', label: 'Approved' },
   { value: 'in_progress', label: 'In Progress' },
+  { value: 'nearing_completion', label: 'Nearing Completion' },
   { value: 'completed', label: 'Completed' },
   { value: 'rejected', label: 'Rejected' },
 ];
@@ -228,9 +253,23 @@ export const REPORT_STATUSES: Option[] = [
 export const WORK_ORDER_STATUSES: Option[] = [
   { value: 'pending', label: 'Pending' },
   { value: 'in_progress', label: 'In Progress' },
+  { value: 'nearing_completion', label: 'Nearing Completion' },
   { value: 'completed', label: 'Completed' },
   { value: 'cancelled', label: 'Cancelled' },
 ];
+
+/** The five repair stages, in order, with the icon used on the stepper and timeline. */
+export const REPAIR_STAGES: { value: string; label: string; icon: string; hint: string }[] = [
+  { value: 'reported', label: 'Reported', icon: 'document-text-outline', hint: 'The problem was reported.' },
+  { value: 'pending', label: 'Pending', icon: 'time-outline', hint: 'Waiting for the technician to start.' },
+  { value: 'in_progress', label: 'In Progress', icon: 'construct-outline', hint: 'The technician is working on it.' },
+  { value: 'nearing_completion', label: 'Nearing Completion', icon: 'hourglass-outline', hint: 'Work is almost done; final checks remain.' },
+  { value: 'completed', label: 'Completed', icon: 'checkmark-done-outline', hint: 'The repair is finished.' },
+];
+
+export const STAGE_ORDER: Record<string, number> = Object.fromEntries(
+  REPAIR_STAGES.map((s, i) => [s.value, i]),
+);
 
 export const ROLES: Option[] = [
   { value: 'admin', label: 'Administrator' },
@@ -329,9 +368,11 @@ export function labelOf(kind: string, value: string | null | undefined): string 
 /** Ionic color names for status / priority chips. */
 const TONES: Record<string, Record<string, string>> = {
   status: {
+    reported: 'medium',
     pending: 'warning',
     approved: 'tertiary',
     in_progress: 'primary',
+    nearing_completion: 'tertiary',
     completed: 'success',
     rejected: 'danger',
     cancelled: 'medium',

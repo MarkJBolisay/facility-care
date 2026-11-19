@@ -33,11 +33,11 @@ class DashboardController extends Controller
 
         $woByStatus = WorkOrder::selectRaw('status, count(*) as total')->groupBy('status')->pluck('total', 'status');
 
-        $openByPriority = Report::whereIn('status', ['pending', 'approved', 'in_progress'])
+        $openByPriority = Report::whereIn('status', Report::OPEN_STATUSES)
             ->selectRaw("coalesce(priority, 'unset') as p, count(*) as total")
             ->groupBy('p')->pluck('total', 'p');
 
-        $openByCategory = Report::whereIn('status', ['pending', 'approved', 'in_progress'])
+        $openByCategory = Report::whereIn('status', Report::OPEN_STATUSES)
             ->selectRaw("coalesce(category, 'uncategorized') as c, count(*) as total")
             ->groupBy('c')->orderByDesc('total')->pluck('total', 'c');
 
@@ -69,6 +69,7 @@ class DashboardController extends Controller
                 'pending' => (int) ($byStatus['pending'] ?? 0),
                 'approved' => (int) ($byStatus['approved'] ?? 0),
                 'in_progress' => (int) ($byStatus['in_progress'] ?? 0),
+                'nearing_completion' => (int) ($byStatus['nearing_completion'] ?? 0),
                 'completed' => (int) ($byStatus['completed'] ?? 0),
                 'rejected' => (int) ($byStatus['rejected'] ?? 0),
                 'awaiting_assignment' => (clone $awaitingAssignment)->count(),
@@ -76,6 +77,7 @@ class DashboardController extends Controller
             'work_orders' => [
                 'pending' => (int) ($woByStatus['pending'] ?? 0),
                 'in_progress' => (int) ($woByStatus['in_progress'] ?? 0),
+                'nearing_completion' => (int) ($woByStatus['nearing_completion'] ?? 0),
                 'completed' => (int) ($woByStatus['completed'] ?? 0),
                 'unassigned' => WorkOrder::whereIn('status', WorkOrder::ACTIVE_STATUSES)->whereNull('assigned_to')->count(),
                 'overdue' => WorkOrder::whereIn('status', WorkOrder::ACTIVE_STATUSES)->whereDate('due_date', '<', today())->count(),
@@ -123,6 +125,7 @@ class DashboardController extends Controller
             'tasks' => [
                 'pending' => (clone $mine)->where('status', 'pending')->count(),
                 'in_progress' => (clone $mine)->where('status', 'in_progress')->count(),
+                'nearing_completion' => (clone $mine)->where('status', 'nearing_completion')->count(),
                 'completed_this_month' => (clone $mine)->where('status', 'completed')
                     ->where('completed_at', '>=', now()->startOfMonth())->count(),
                 'completed_total' => (clone $mine)->where('status', 'completed')->count(),
@@ -130,12 +133,9 @@ class DashboardController extends Controller
                     ->whereDate('due_date', '<', today())->count(),
             ],
             'is_available' => $user->is_available,
-            'next_tasks' => (clone $mine)->with(['facility.parent', 'report:id,reference,photo', 'equipment:id,code,name'])
-                // photo counts let the dashboard show which repair step comes next
-                ->withCount(['photos as before_photos_count' => fn ($q) => $q->where('type', 'before'),
-                    'photos as after_photos_count' => fn ($q) => $q->where('type', 'after')])
+            'next_tasks' => (clone $mine)->with(['facility.parent', 'report:id,reference,photo', 'equipment:id,code,name', 'photos', 'materials'])
                 ->whereIn('status', WorkOrder::ACTIVE_STATUSES)
-                ->orderByRaw("CASE status WHEN 'in_progress' THEN 0 ELSE 1 END")
+                ->orderByRaw("CASE status WHEN 'in_progress' THEN 0 WHEN 'nearing_completion' THEN 1 ELSE 2 END")
                 ->orderByRaw("CASE priority WHEN 'critical' THEN 1 WHEN 'high' THEN 2 WHEN 'medium' THEN 3 ELSE 4 END")
                 ->orderByRaw('due_date IS NULL, due_date')
                 ->limit(5)->get(),
@@ -154,13 +154,14 @@ class DashboardController extends Controller
                 'pending' => (int) ($byStatus['pending'] ?? 0),
                 'approved' => (int) ($byStatus['approved'] ?? 0),
                 'in_progress' => (int) ($byStatus['in_progress'] ?? 0),
+                'nearing_completion' => (int) ($byStatus['nearing_completion'] ?? 0),
                 'completed' => (int) ($byStatus['completed'] ?? 0),
                 'rejected' => (int) ($byStatus['rejected'] ?? 0),
             ],
             // Open reports, shown with a progress tracker on the home screen
             'active_reports' => Report::with(['facility.parent', 'equipment:id,code,name', 'activeWorkOrder.assignee:id,name'])
                 ->where('user_id', $user->id)
-                ->whereIn('status', ['pending', 'approved', 'in_progress'])
+                ->whereIn('status', Report::OPEN_STATUSES)
                 ->latest()->limit(10)->get(),
             // Latest reports of any status, for the "Recent Reports" list on the home screen
             'recent_reports' => Report::with(['facility.parent', 'activeWorkOrder.assignee:id,name'])

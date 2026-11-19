@@ -94,9 +94,45 @@ class AuthController extends Controller
         return $request->user();
     }
 
+    /**
+     * Students, faculty and staff may maintain their contact details only.
+     * Name, email, account type (role) and account ID are registered details and
+     * are never taken from the request, even if a client posts them.
+     */
     public function updateProfile(Request $request)
     {
         $user = $request->user();
+
+        if (in_array($user->role, User::REPORTER_ROLES, true)) {
+            $data = $request->validate([
+                'phone' => ['nullable', 'string', 'max:30', function ($attribute, $value, $fail) {
+                    if ($value === null || trim((string) $value) === '') {
+                        return;
+                    }
+                    if (! preg_match('/^(?:\+?63|0)9\d{9}$/', preg_replace('/[\s\-().]/', '', (string) $value))) {
+                        $fail('Enter a valid Philippine mobile number (e.g. 09171234567).');
+                    }
+                }],
+                'department' => 'nullable|string|max:255',
+            ]);
+
+            // Only touch fields the client actually sent, so partial updates
+            // never wipe the other optional detail.
+            $changes = [];
+            if (array_key_exists('phone', $data)) {
+                $changes['phone'] = self::normalizePhone($data['phone']);
+            }
+            if (array_key_exists('department', $data)) {
+                $changes['department'] = trim((string) $data['department']) ?: null;
+            }
+            if ($changes) {
+                $user->update($changes);
+            }
+
+            return $user->fresh();
+        }
+
+        // Administrator and technician profiles are managed by their own screens.
         $data = $request->validate([
             'name' => 'required|string|max:255',
             'email' => ['required', 'email', Rule::unique('users')->ignore($user->id)],
@@ -108,6 +144,22 @@ class AuthController extends Controller
         $user->update($data);
 
         return $user;
+    }
+
+    /** Store Philippine mobiles in one format: 09XX XXX XXXX → 09171234567. */
+    private static function normalizePhone(?string $phone): ?string
+    {
+        $phone = preg_replace('/[\s\-().]/', '', trim((string) $phone));
+        if ($phone === '') {
+            return null;
+        }
+        if (str_starts_with($phone, '+63')) {
+            $phone = '0'.substr($phone, 3);
+        } elseif (str_starts_with($phone, '63') && strlen($phone) === 12) {
+            $phone = '0'.substr($phone, 2);
+        }
+
+        return preg_match('/^09\d{9}$/', $phone) ? $phone : $phone;
     }
 
     public function changePassword(Request $request)

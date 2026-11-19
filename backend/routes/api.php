@@ -57,10 +57,14 @@ Route::middleware(['auth:sanctum', 'active'])->group(function () {
     Route::get('/work-orders/{workOrder}', [WorkOrderController::class, 'show']);
     Route::middleware('role:admin,maintenance')->group(function () {
         Route::post('/work-orders/{workOrder}/status', [WorkOrderController::class, 'updateStatus']);
+        // One step at a time, with a fresh photo as proof for every stage.
+        Route::post('/work-orders/{workOrder}/stage', [WorkOrderController::class, 'updateStage']);
         Route::post('/work-orders/{workOrder}/photos', [WorkOrderController::class, 'addPhoto']);
         Route::delete('/work-order-photos/{photo}', [WorkOrderController::class, 'deletePhoto']);
         Route::post('/work-orders/{workOrder}/materials', [WorkOrderController::class, 'addMaterial']);
+        Route::post('/work-orders/{workOrder}/materials/{material}', [WorkOrderController::class, 'updateMaterial']);
         Route::delete('/work-order-materials/{material}', [WorkOrderController::class, 'deleteMaterial']);
+        Route::post('/work-orders/{workOrder}/no-materials', [WorkOrderController::class, 'noMaterials']);
     });
 
     // Admin only

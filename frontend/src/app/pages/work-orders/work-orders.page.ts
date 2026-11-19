@@ -39,6 +39,12 @@ import { SHARED, completeRefresh } from '../../shared/ui';
         </div>
       } @else if (scope === 'active') {
         <div class="toolbar-chips">
+          <ion-chip [outline]="taskTab !== 'all'" [color]="taskTab === 'all' ? 'primary' : 'medium'" (click)="setTaskTab('all')">All</ion-chip>
+          <ion-chip [outline]="taskTab !== 'todo'" [color]="taskTab === 'todo' ? 'primary' : 'medium'" (click)="setTaskTab('todo')">To Do</ion-chip>
+          <ion-chip [outline]="taskTab !== 'in_progress'" [color]="taskTab === 'in_progress' ? 'primary' : 'medium'" (click)="setTaskTab('in_progress')">In Progress</ion-chip>
+          <ion-chip [outline]="taskTab !== 'completed'" [color]="taskTab === 'completed' ? 'primary' : 'medium'" (click)="setTaskTab('completed')">Completed</ion-chip>
+        </div>
+        <div class="toolbar-chips">
           <ion-chip [outline]="priority !== ''" [color]="priority === '' ? 'primary' : 'medium'" (click)="setPriority('')">Any priority</ion-chip>
           @for (p of priorities; track p.value) {
             <ion-chip [outline]="priority !== p.value" [color]="priority === p.value ? 'primary' : 'medium'" (click)="setPriority(p.value)">{{ p.label }}</ion-chip>
@@ -114,6 +120,7 @@ import { SHARED, completeRefresh } from '../../shared/ui';
                     <ion-icon name="calendar-outline" /> Due {{ w.due_date }}{{ isOverdue(w) ? ' — overdue' : '' }}
                   </p>
                 }
+                <p class="muted"><ion-icon name="time-outline" /> Reported {{ w.created_at | ago }}</p>
                 <div class="pills">
                   <app-badge kind="status" [value]="w.status" />
                   <app-badge kind="priority" [value]="w.priority" />
@@ -123,7 +130,7 @@ import { SHARED, completeRefresh } from '../../shared/ui';
             </ion-item>
           } @empty {
             @if (!loading()) {
-              <app-empty [text]="scope === 'active' ? 'No assigned tasks.' : 'No work orders found.'" icon="hammer-outline" />
+              <app-empty [text]="scope === 'active' ? 'No tasks in this filter.' : 'No work orders found.'" icon="hammer-outline" />
             }
           }
         </ion-list>
@@ -169,6 +176,8 @@ export class WorkOrdersPage {
   status = '';
   attention = '';
   priority = '';
+  /** My Tasks filters: all tasks, to do, in progress, completed. */
+  taskTab: 'all' | 'todo' | 'in_progress' | 'completed' = 'all';
   private appliedQuery = '';
   protected items = signal<WorkOrder[]>([]);
   protected page = signal(1);
@@ -219,6 +228,11 @@ export class WorkOrdersPage {
     void this.reload();
   }
 
+  setTaskTab(tab: 'all' | 'todo' | 'in_progress' | 'completed'): void {
+    this.taskTab = tab;
+    void this.reload();
+  }
+
   isOverdue(w: WorkOrder): boolean {
     return !!w.due_date && w.due_date < new Date().toISOString().slice(0, 10);
   }
@@ -235,14 +249,22 @@ export class WorkOrdersPage {
 
   private async fetch(page: number): Promise<void> {
     this.loading.set(true);
+    const taskStatus =
+      this.taskTab === 'todo'
+        ? 'pending'
+        : this.taskTab === 'in_progress'
+          ? 'in_progress,nearing_completion'
+          : this.taskTab === 'completed'
+            ? 'completed'
+            : '';
     try {
       const res = await this.api.get<Paginated<WorkOrder>>('work-orders', {
         page,
         search: this.search,
-        status: this.status,
+        status: this.scope === 'active' ? taskStatus : this.status,
         attention: this.attention,
         priority: this.priority,
-        scope: this.scope === 'all' ? '' : this.scope,
+        scope: this.scope === 'all' ? '' : this.scope === 'active' ? (this.taskTab === 'all' || this.taskTab === 'completed' ? 'tasks' : 'active') : this.scope,
         assigned_to: this.technicianId || '',
         facility_id: this.facilityId || '',
         type: this.type,

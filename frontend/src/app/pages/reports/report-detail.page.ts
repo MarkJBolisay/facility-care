@@ -1,15 +1,16 @@
-import { DatePipe } from '@angular/common';
+import { DatePipe, DecimalPipe } from '@angular/common';
 import { Component, computed, inject, input, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { NavController } from '@ionic/angular';
 import { ApiService, errorMessage } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
-import { CATEGORIES, PRIORITIES, Report, WorkOrder, equipmentIcon, toneOf } from '../../core/models';
+import { CATEGORIES, PRIORITIES, Report, WorkOrder, equipmentIcon, labelOf, toneOf } from '../../core/models';
 import { ActivityComponent } from '../../shared/activity';
 import { UiService } from '../../core/ui.service';
 import { IONIC } from '../../shared/ionic';
 import { SHARED } from '../../shared/ui';
+import { RepairTimelineComponent, buildWorkOrderTimeline } from '../../shared/timeline';
 
 interface Step {
   label: string;
@@ -21,7 +22,7 @@ interface Step {
 
 @Component({
   selector: 'app-report-detail',
-  imports: [...IONIC, ...SHARED, FormsModule, RouterLink, DatePipe, ActivityComponent],
+  imports: [...IONIC, ...SHARED, FormsModule, RouterLink, DatePipe, DecimalPipe, ActivityComponent, RepairTimelineComponent],
   template: `
     <ion-header>
       <ion-toolbar>
@@ -61,6 +62,13 @@ interface Step {
             <a [href]="r.photo_url" target="_blank"><img class="hero-photo" [src]="r.photo_url" alt="Reported issue" /></a>
           }
 
+          <ion-segment class="tabs" [value]="tab()" (ionChange)="setTab($any($event).detail.value)">
+            <ion-segment-button value="details"><ion-label>Details</ion-label></ion-segment-button>
+            <ion-segment-button value="materials"><ion-label>Materials Use</ion-label></ion-segment-button>
+            <ion-segment-button value="activity"><ion-label>Activity Log</ion-label></ion-segment-button>
+          </ion-segment>
+
+          @if (tab() === 'details') {
           <div class="panel">
             <h2 class="mt-0">{{ r.title }}</h2>
             <div class="pills">
@@ -239,6 +247,14 @@ interface Step {
                   </ion-label>
                 </ion-item>
               </ion-list>
+              <div class="repair-actions">
+                <ion-button [routerLink]="['/work-orders', wo.id]">
+                  <ion-icon slot="start" name="create-outline" /> Update Status
+                </ion-button>
+                <ion-button fill="outline" (click)="showTimeline.set(!showTimeline())">
+                  <ion-icon slot="start" name="git-commit-outline" /> {{ showTimeline() ? 'Hide Timeline' : 'View Timeline' }}
+                </ion-button>
+              </div>
             } @else if (r.status !== 'rejected' && r.status !== 'completed') {
               <ion-button expand="block" (click)="assign()">
                 <ion-icon slot="start" name="person-add-outline" /> Assign maintenance personnel
@@ -259,7 +275,22 @@ interface Step {
                 @if (wo.due_date) {<dt>Target date</dt><dd>{{ wo.due_date }}</dd>}
                 @if (wo.actions_taken) {<dt>Actions taken</dt><dd>{{ wo.actions_taken }}</dd>}
               </dl>
+              <div class="repair-actions">
+                @if (canWork()) {
+                  <ion-button [routerLink]="['/work-orders', wo.id]">
+                    <ion-icon slot="start" name="create-outline" /> Update Status
+                  </ion-button>
+                }
+                <ion-button fill="outline" (click)="showTimeline.set(!showTimeline())">
+                  <ion-icon slot="start" name="git-commit-outline" /> {{ showTimeline() ? 'Hide Timeline' : 'View Timeline' }}
+                </ion-button>
+              </div>
             </div>
+          }
+
+          @if (showTimeline() && timeline().length) {
+            <div class="section-title">Repair timeline</div>
+            <div class="panel"><app-repair-timeline [items]="timeline()" /></div>
           }
 
           <div class="section-title">Progress</div>
@@ -276,11 +307,6 @@ interface Step {
             }
           </ion-list>
 
-          @if (auth.isAdmin() && r.activities?.length) {
-            <div class="section-title">Activity history</div>
-            <div class="panel"><app-activity [items]="r.activities" /></div>
-          }
-
           <!-- Reporter: a rejected request, or a confirmed repair that broke again later, can be reported again -->
           @if (!auth.isAdmin() && r.user_id === auth.user()?.id && (r.status === 'rejected' || (r.status === 'completed' && r.confirmed_at))) {
             <div class="panel ion-text-center">
@@ -291,6 +317,58 @@ interface Step {
               </ion-button>
             </div>
           }
+          }
+
+          @if (tab() === 'materials') {
+            <div class="section-title">Materials Use</div>
+            @if (activeWo(); as wo) {
+              <div class="panel">
+                <div class="mat-head">
+                  <div>
+                    <strong>{{ materials().length }} {{ materials().length === 1 ? 'entry' : 'entries' }}</strong>
+                    <span>{{ wo.materials_cost ? ('₱' + (wo.materials_cost | number: '1.2-2') + ' total cost') : 'No cost recorded' }}</span>
+                  </div>
+                  @if (canWork()) {
+                    <ion-button [routerLink]="['/work-orders', wo.id]">
+                      <ion-icon slot="start" name="add-outline" /> Add Materials
+                    </ion-button>
+                  }
+                </div>
+                @if (wo.no_materials_reason && !materials().length) {
+                  <div class="no-materials">
+                    <ion-icon name="cube-outline" />
+                    <div><strong>No materials used</strong><span>{{ wo.no_materials_reason }}</span></div>
+                  </div>
+                } @else if (!materials().length) {
+                  <p class="muted small">No materials recorded for this repair.</p>
+                }
+                @for (m of materials(); track m.id) {
+                  <div class="mat-row">
+                    @if (m.photo_url) {
+                      <a [href]="m.photo_url" target="_blank" class="mat-photo">
+                        <img [src]="m.photo_url" alt="Photo of {{ m.name }}" loading="lazy" />
+                      </a>
+                    } @else {
+                      <span class="mat-photo placeholder"><ion-icon [name]="m.type === 'equipment' ? 'construct-outline' : 'cube-outline'" /></span>
+                    }
+                    <div class="mat-main">
+                      <strong>{{ m.name }}</strong>
+                      <span>{{ m.quantity }} {{ m.unit }} · {{ m.type === 'equipment' ? 'Equipment' : 'Material' }}</span>
+                      @if (m.purpose) { <span class="mat-purpose">{{ m.purpose }}</span> }
+                      @if (m.unit_cost) { <span class="mat-purpose">₱{{ m.unit_cost | number: '1.2-2' }} each</span> }
+                    </div>
+                  </div>
+                }
+              </div>
+            } @else {
+              <app-empty text="No repair has started for this report yet." icon="cube-outline" />
+            }
+          }
+
+          @if (tab() === 'activity') {
+            <div class="section-title">Activity Log</div>
+            <div class="panel"><app-activity [items]="r.activities ?? []" /></div>
+          }
         </div>
       } @else if (loadError()) {
         <app-empty [text]="loadError()" icon="alert-circle-outline" />
@@ -299,6 +377,31 @@ interface Step {
       }
     </ion-content>
   `,
+  styles: [
+    `
+      .tabs { margin-bottom: 14px; --background: var(--fc-surface, #fff); border-radius: 12px; }
+      .repair-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+      .repair-actions ion-button { flex: 1 1 160px; margin: 0; }
+      .mat-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+      .mat-head div { display: flex; flex-direction: column; }
+      .mat-head strong { font-size: 0.95rem; }
+      .mat-head span { font-size: 0.76rem; color: var(--fc-muted, #7a8394); }
+      .no-materials { display: flex; gap: 10px; padding: 10px 12px; border-radius: 12px; background: var(--fc-page, #f5f8fd); }
+      .no-materials ion-icon { font-size: 22px; color: var(--fc-muted, #7a8394); flex-shrink: 0; }
+      .no-materials div { display: flex; flex-direction: column; }
+      .no-materials strong { font-size: 0.86rem; }
+      .no-materials span { font-size: 0.78rem; color: var(--fc-muted, #7a8394); }
+      .mat-row { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--fc-line, #e3e9f2); }
+      .mat-row:last-child { border-bottom: none; }
+      .mat-photo { width: 54px; height: 54px; flex: 0 0 54px; border-radius: 12px; overflow: hidden; border: 1px solid var(--fc-line, #e3e9f2); }
+      .mat-photo img { width: 100%; height: 100%; object-fit: cover; }
+      .mat-photo.placeholder { display: grid; place-items: center; background: var(--fc-page, #f5f8fd); color: var(--fc-muted, #7a8394); font-size: 22px; }
+      .mat-main { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+      .mat-main strong { font-size: 0.9rem; }
+      .mat-main span { font-size: 0.76rem; color: var(--fc-muted, #7a8394); }
+      .mat-main .mat-purpose { color: var(--fc-text, #5b6475); }
+    `,
+  ],
 })
 export class ReportDetailPage {
   private api = inject(ApiService);
@@ -331,13 +434,36 @@ export class ReportDetailPage {
     return 2;
   });
 
+  protected tab = signal<'details' | 'materials' | 'activity'>('details');
+  protected showTimeline = signal(false);
+
+  protected setTab(value: string): void {
+    this.tab.set(value as 'details' | 'materials' | 'activity');
+  }
+
   /** The open work order; once the report is completed, the one that finished it. A reopened report has none until reassigned. */
   protected activeWo = computed<WorkOrder | null>(() => {
     const r = this.report();
     const list = r?.work_orders ?? [];
-    const open = list.find((w) => w.status === 'pending' || w.status === 'in_progress');
+    const open = list.find((w) => ['pending', 'in_progress', 'nearing_completion'].includes(w.status));
     if (open) return open;
     return r?.status === 'completed' ? (list.find((w) => w.status === 'completed') ?? null) : null;
+  });
+
+  protected materials = computed(() => this.activeWo()?.materials ?? []);
+
+  /** Only the assigned technician (or an admin) can change the repair. */
+  protected canWork = computed(() => {
+    const w = this.activeWo();
+    const u = this.auth.user();
+    if (!w || !u || w.status === 'completed' || w.status === 'cancelled') return false;
+    return u.role === 'admin' || (u.role === 'maintenance' && w.assigned_to === u.id);
+  });
+
+  /** The five-stage timeline, built from the work order's own stage records. */
+  protected timeline = computed(() => {
+    const w = this.activeWo();
+    return w ? buildWorkOrderTimeline(w) : [];
   });
 
   protected canDelete = computed(() => {

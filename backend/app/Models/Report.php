@@ -16,10 +16,10 @@ class Report extends Model
 
     public const PRIORITIES = ['low', 'medium', 'high', 'critical'];
 
-    public const STATUSES = ['pending', 'approved', 'rejected', 'in_progress', 'completed'];
+    public const STATUSES = ['pending', 'approved', 'rejected', 'in_progress', 'nearing_completion', 'completed'];
 
     /** Still waiting to be fixed. */
-    public const OPEN_STATUSES = ['pending', 'approved', 'in_progress'];
+    public const OPEN_STATUSES = ['pending', 'approved', 'in_progress', 'nearing_completion'];
 
     /** How bad the problem is, chosen by the requester. */
     public const SEVERITIES = ['minor', 'moderate', 'severe'];

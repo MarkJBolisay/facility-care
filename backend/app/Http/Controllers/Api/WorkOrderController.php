@@ -34,11 +34,14 @@ class WorkOrderController extends Controller
             $query->where('assigned_to', $user->id);
         }
 
-        // scope=active → pending + in progress, scope=history → completed + cancelled
+        // scope=active → open tasks, scope=tasks → everything assigned (incl. finished, except cancelled),
+        // scope=history → completed + cancelled
         if ($request->input('scope') === 'active') {
             $query->whereIn('status', WorkOrder::ACTIVE_STATUSES)
                 ->orderByRaw(self::PRIORITY_ORDER)
                 ->orderByRaw('due_date IS NULL, due_date');
+        } elseif ($request->input('scope') === 'tasks') {
+            $query->where('status', '!=', 'cancelled')->latest();
         } elseif ($request->input('scope') === 'history') {
             $query->whereIn('status', ['completed', 'cancelled'])->orderByDesc('completed_at');
         }
@@ -50,7 +53,11 @@ class WorkOrderController extends Controller
             $query->whereIn('status', WorkOrder::ACTIVE_STATUSES)->whereDate('due_date', '<', today());
         }
 
-        foreach (['status', 'priority', 'assigned_to', 'type', 'equipment_id', 'category'] as $field) {
+        // status may be a comma list, e.g. in_progress,nearing_completion
+        if ($request->filled('status')) {
+            $query->whereIn('status', array_filter(explode(',', (string) $request->input('status'))));
+        }
+        foreach (['priority', 'assigned_to', 'type', 'equipment_id', 'category'] as $field) {
             if ($request->filled($field)) {
                 $query->where($field, $request->input($field));
             }
@@ -143,6 +150,20 @@ class WorkOrderController extends Controller
                 ]);
             }
 
+            // Start the timeline with the two stages that already happened.
+            $wo->stages()->create([
+                'stage' => 'reported',
+                'remarks' => $report ? 'Request '.$report->reference.' submitted.' : 'Work order created.',
+                'user_id' => $report?->user_id ?? $request->user()->id,
+                'created_at' => $report?->created_at ?? now(),
+            ]);
+            $wo->stages()->create([
+                'stage' => 'pending',
+                'remarks' => 'Work order '.$wo->reference.' created'.($wo->assigned_to ? ' and assigned.' : '.'),
+                'user_id' => $request->user()->id,
+                'created_at' => now(),
+            ]);
+
             ActivityLog::record('work_order_created', "Work order {$wo->reference} created".
                 ($wo->due_date ? ', target date '.$wo->due_date->format('M j, Y') : '').'.', $request->user(), $report, $wo);
 
@@ -183,6 +204,13 @@ class WorkOrderController extends Controller
         ]);
         $before = $workOrder->only(['status', 'assigned_to', 'due_date', 'priority']);
         $oldAssignee = $workOrder->assignee?->name;
+
+        // Stages are advanced through the repair workflow (with photo proof); only cancellation is a direct edit.
+        if (isset($data['status']) && $data['status'] !== $workOrder->status && $data['status'] !== 'cancelled') {
+            throw ValidationException::withMessages([
+                'status' => 'Use Update repair status to move the job through its stages. A status cannot be skipped.',
+            ]);
+        }
 
         $this->ensureMaintenance($data['assigned_to'] ?? null);
         WorkOrder::assertDueDateNotPast($data['due_date'] ?? null, $workOrder->due_date?->toDateString());
@@ -256,7 +284,7 @@ class WorkOrderController extends Controller
         $report = $workOrder->report;
         $workOrder->delete();
 
-        if ($report && in_array($report->status, ['in_progress', 'completed'])) {
+        if ($report && in_array($report->status, ['in_progress', 'nearing_completion', 'completed'])) {
             $report->update(['status' => 'approved']);
         }
 
@@ -264,83 +292,156 @@ class WorkOrderController extends Controller
     }
 
     /**
-     * Maintenance (or admin): Pending → In Progress → Completed.
-     * Completing requires the completion report (actions taken, remarks, date completed).
+     * Legacy endpoint: stage changes now go through updateStage so every stage
+     * carries its own remarks and photo proof. Kept so old clients get a clear message.
      */
     public function updateStatus(Request $request, WorkOrder $workOrder)
     {
         $this->authorizeWork($request, $workOrder, true);
 
         $data = $request->validate([
-            'status' => ['required', Rule::in(['pending', 'in_progress', 'completed'])],
-            'actions_taken' => 'required_if:status,completed|nullable|string|max:5000',
-            'remarks' => 'nullable|string|max:5000',
-            'completed_at' => 'nullable|date',
-            'condition_after' => ['nullable', Rule::in(Equipment::CONDITIONS)],
+            'status' => ['required', Rule::in(WorkOrder::STATUSES)],
         ]);
-        $fromStatus = $workOrder->status;
+
+        if ($data['status'] === $workOrder->status) {
+            return $this->load($workOrder->fresh());
+        }
+
+        return response()->json([
+            'message' => 'Update the repair through its stages. Every stage needs its own photo proof.',
+        ], 422);
+    }
+
+    /**
+     * Advance the repair one stage: In Progress → Nearing Completion → Completed.
+     * A stage can't be skipped, repeated, or changed after completion, and each
+     * submission needs a fresh photo (an earlier stage photo is never reused).
+     */
+    public function updateStage(Request $request, WorkOrder $workOrder)
+    {
+        $this->authorizeWork($request, $workOrder, true);
+        $user = $request->user();
+
+        $data = $request->validate([
+            'stage' => ['required', Rule::in(['in_progress', 'nearing_completion', 'completed'])],
+            'remarks' => 'nullable|string|max:1000',
+            'photo' => 'required|image|max:8192',
+            'actions_taken' => 'nullable|string|max:5000',
+            'condition_after' => ['nullable', Rule::in(Equipment::CONDITIONS)],
+            'no_materials_reason' => 'nullable|string|max:1000',
+        ], [
+            'photo.required' => 'Add a photo of this stage. Picture proof is required.',
+            'photo.image' => 'The proof must be an image (JPG or PNG).',
+            'photo.max' => 'The photo must be 8 MB or smaller.',
+        ]);
+
+        $stage = $data['stage'];
 
         if ($workOrder->status === 'cancelled') {
             return response()->json(['message' => 'This work order was cancelled.'], 422);
         }
-        // Personnel may still correct the completion report, but only the admin can undo a finished repair.
-        if ($workOrder->status === 'completed' && $data['status'] !== 'completed' && ! $request->user()->isAdmin()) {
+        if ($workOrder->status === 'completed') {
             return response()->json(['message' => 'This repair is already completed. Ask the admin to reopen it.'], 422);
         }
 
-        // The completion date must be a real moment of the repair: not in the future, not before it started.
-        $doneAt = $data['status'] === 'completed' && ! empty($data['completed_at']) ? Carbon::parse($data['completed_at']) : null;
-        if ($doneAt && $doneAt->gt(now()->addMinutes(5))) { // a few minutes of slack for a phone clock that runs fast
-            throw ValidationException::withMessages(['completed_at' => "Date completed can't be in the future."]);
-        }
-        if ($doneAt && $workOrder->started_at && $doneAt->lt($workOrder->started_at->copy()->startOfMinute())) {
-            throw ValidationException::withMessages(['completed_at' => "Date completed can't be before the repair started."]);
-        }
-
-        $updates = ['status' => $data['status']];
-
-        if ($data['status'] === 'in_progress') {
-            $updates['started_at'] = $workOrder->started_at ?? now();
-            $updates['completed_at'] = null;
-        } elseif ($data['status'] === 'completed') {
-            $updates['completed_at'] = $doneAt ?? now();
-            // completed without pressing Start: it started no later than it was completed
-            $updates['started_at'] = $workOrder->started_at ?? $updates['completed_at']->copy()->min(now());
-            $updates['actions_taken'] = $data['actions_taken'];
-            $updates['remarks'] = $data['remarks'] ?? $workOrder->remarks;
-            $updates['condition_after'] = $workOrder->equipment_id ? ($data['condition_after'] ?? 'operational') : null;
-        } else {
-            $updates['started_at'] = null;
-            $updates['completed_at'] = null;
+        // Strictly one step at a time.
+        $next = ['pending' => 'in_progress', 'in_progress' => 'nearing_completion', 'nearing_completion' => 'completed'][$workOrder->status] ?? null;
+        if ($stage !== $next) {
+            throw ValidationException::withMessages([
+                'stage' => $workOrder->status === 'pending'
+                    ? 'Start the repair before marking it nearing completion.'
+                    : 'Finish the current stage first. Stages cannot be skipped.',
+            ]);
         }
 
-        $workOrder->update($updates);
-        $this->syncReport($workOrder);
-
-        if ($fromStatus !== $data['status']) {
-            $what = ['pending' => 'Moved back to Pending', 'in_progress' => 'Repair started', 'completed' => 'Repair completed'][$data['status']];
-            ActivityLog::record($data['status'] === 'completed' ? 'completed' : 'status_changed', "$what.",
-                $request->user(), workOrder: $workOrder, from: $fromStatus, to: $data['status']);
+        // Duplicate submissions (double taps, retries) are rejected.
+        if ($workOrder->stages()->where('stage', $stage)->exists()) {
+            return response()->json(['message' => 'This stage was already submitted.'], 422);
         }
-        $this->syncEquipment($workOrder, $request->user());
 
-        $label = ['pending' => 'Pending', 'in_progress' => 'In Progress', 'completed' => 'Completed'][$data['status']];
-        $recipients = Notifier::admins();
-        if ($workOrder->report) {
-            $recipients[] = $workOrder->report->user_id;
+        if (in_array($stage, ['nearing_completion', 'completed']) && empty(trim((string) ($data['actions_taken'] ?? '')))) {
+            throw ValidationException::withMessages(['actions_taken' => 'Describe the work done so far.']);
         }
-        $recipients = array_diff($recipients, [$request->user()->id]);
 
-        Notifier::send(
-            $recipients,
-            "Repair $label",
-            "{$workOrder->reference} \"{$workOrder->title}\" is now $label".
-                ($workOrder->assignee ? " (by {$workOrder->assignee->name})." : '.'),
-            'status',
-            $workOrder->report,
-            $workOrder,
-            $request->user(),
-        );
+        if ($stage === 'completed') {
+            $materials = $workOrder->materials()->count();
+            $reason = trim((string) ($data['no_materials_reason'] ?? $workOrder->no_materials_reason ?? ''));
+            if ($materials === 0 && $reason === '') {
+                throw ValidationException::withMessages([
+                    'no_materials_reason' => 'Record the materials used, or choose "No materials used" and explain why.',
+                ]);
+            }
+            if ($materials === 0 && mb_strlen($reason) < 5) {
+                throw ValidationException::withMessages(['no_materials_reason' => 'Please explain why no materials were used.']);
+            }
+        }
+
+        $photoPath = Uploads::store($request->file('photo'), 'stages');
+        $fromStatus = $workOrder->status;
+
+        DB::transaction(function () use ($workOrder, $stage, $data, $user, $photoPath, $fromStatus) {
+            $updates = ['status' => $stage];
+            if ($stage === 'in_progress') {
+                $updates['started_at'] = $workOrder->started_at ?? now();
+            }
+            if ($stage === 'nearing_completion') {
+                $updates['nearing_completion_at'] = now();
+                $updates['actions_taken'] = $data['actions_taken'];
+            }
+            if ($stage === 'completed') {
+                $updates['completed_at'] = now();
+                $updates['completed_by'] = $user->id;
+                $updates['started_at'] = $workOrder->started_at ?? now();
+                $updates['actions_taken'] = $data['actions_taken'];
+                $updates['remarks'] = $data['remarks'] ?? $workOrder->remarks;
+                $updates['condition_after'] = $workOrder->equipment_id ? ($data['condition_after'] ?? 'operational') : null;
+                if (! empty($data['no_materials_reason'])) {
+                    $updates['no_materials_reason'] = $data['no_materials_reason'];
+                }
+            }
+
+            $workOrder->update($updates);
+
+            $workOrder->photos()->create([
+                'type' => in_array($stage, ['nearing_completion', 'completed']) ? 'after' : 'before',
+                'stage' => $stage,
+                'remarks' => $data['remarks'] ?? null,
+                'path' => $photoPath,
+                'uploaded_by' => $user->id,
+            ]);
+
+            $workOrder->stages()->create([
+                'stage' => $stage,
+                'remarks' => $data['remarks'] ?? null,
+                'user_id' => $user->id,
+                'created_at' => now(),
+            ]);
+
+            $label = EquipmentController::label($stage);
+            ActivityLog::record($stage === 'completed' ? 'completed' : 'status_changed',
+                "Moved to $label.".(! empty($data['remarks']) ? ' Remarks: '.$data['remarks'] : ''),
+                $user, $workOrder->report, $workOrder, from: $fromStatus, to: $stage);
+
+            $this->syncReport($workOrder);
+            $this->syncEquipment($workOrder, $user);
+
+            $recipients = Notifier::admins();
+            if ($workOrder->report) {
+                $recipients[] = $workOrder->report->user_id;
+            }
+            $recipients = array_diff($recipients, [$user->id]);
+
+            Notifier::send(
+                $recipients,
+                "Repair $label",
+                "{$workOrder->reference} \"{$workOrder->title}\" is now $label".
+                    ($workOrder->assignee ? " (by {$workOrder->assignee->name})." : '.'),
+                'status',
+                $workOrder->report,
+                $workOrder,
+                $user,
+            );
+        });
 
         return $this->load($workOrder->fresh());
     }
@@ -351,11 +452,13 @@ class WorkOrderController extends Controller
 
         $data = $request->validate([
             'type' => ['required', Rule::in(['before', 'after'])],
+            'stage' => ['nullable', Rule::in(WorkOrder::STAGES)],
             'photo' => 'required|image|max:8192',
         ]);
 
         $photo = $workOrder->photos()->create([
             'type' => $data['type'],
+            'stage' => $data['stage'] ?? ($workOrder->status === 'pending' ? 'reported' : $workOrder->status),
             'path' => Uploads::store($request->file('photo'), 'work-orders'),
             'uploaded_by' => $request->user()->id,
         ]);
@@ -367,6 +470,11 @@ class WorkOrderController extends Controller
     {
         $this->authorizeWork($request, $photo->workOrder, true);
 
+        // A completed repair keeps its proof photos.
+        if ($photo->workOrder->status === 'completed' && ! $request->user()->isAdmin()) {
+            return response()->json(['message' => 'Completed repairs keep their photo proof.'], 422);
+        }
+
         Uploads::delete($photo->path);
         $photo->delete();
 
@@ -376,25 +484,146 @@ class WorkOrderController extends Controller
     public function addMaterial(Request $request, WorkOrder $workOrder)
     {
         $this->authorizeWork($request, $workOrder, true);
+        $this->ensureMaterialsOpen($workOrder);
 
         $data = $request->validate([
             'name' => 'required|string|max:255',
-            'type' => ['required', Rule::in(['material', 'equipment'])],
+            'type' => ['nullable', Rule::in(['material', 'equipment'])],
             'quantity' => 'required|numeric|min:0.01',
             'unit' => 'nullable|string|max:30',
             'unit_cost' => 'nullable|numeric|min:0',
+            'purpose' => 'required|string|max:1000',
+            'photo' => 'required|image|max:8192',
+        ], [
+            'purpose.required' => 'Describe what the material was used for.',
+            'photo.required' => 'Add a photo of the material. Picture proof is required.',
         ]);
 
-        return response()->json($workOrder->materials()->create($data), 201);
+        // No duplicate entries for the same item, quantity and unit.
+        $exists = $workOrder->materials()
+            ->whereRaw('lower(name) = ?', [mb_strtolower(trim($data['name']))])
+            ->where('quantity', $data['quantity'])
+            ->where(fn ($q) => $q->where('unit', $data['unit'] ?? null)->orWhereNull('unit'))
+            ->exists();
+        if ($exists) {
+            throw ValidationException::withMessages(['name' => 'This material is already recorded for this repair.']);
+        }
+
+        $material = $workOrder->materials()->create([
+            'name' => trim($data['name']),
+            'type' => $data['type'] ?? 'material',
+            'quantity' => $data['quantity'],
+            'unit' => $data['unit'] ?? null,
+            'unit_cost' => $data['unit_cost'] ?? null,
+            'purpose' => $data['purpose'],
+            'photo' => Uploads::store($request->file('photo'), 'materials'),
+            'added_by' => $request->user()->id,
+            'used_at' => now(),
+        ]);
+
+        // Recording materials clears a previous "no materials used" note.
+        if ($workOrder->no_materials_reason) {
+            $workOrder->update(['no_materials_reason' => null]);
+        }
+
+        ActivityLog::record('material_added', "Material added: {$material->name} ({$material->quantity} {$material->unit}).",
+            $request->user(), $workOrder->report, $workOrder);
+
+        return response()->json($material->fresh(), 201);
+    }
+
+    public function updateMaterial(Request $request, WorkOrder $workOrder, WorkOrderMaterial $material)
+    {
+        $this->authorizeWork($request, $workOrder, true);
+        $this->ensureMaterialsOpen($workOrder);
+        abort_unless((int) $material->work_order_id === (int) $workOrder->id, 404);
+
+        $data = $request->validate([
+            'name' => 'sometimes|string|max:255',
+            'type' => ['sometimes', Rule::in(['material', 'equipment'])],
+            'quantity' => 'sometimes|numeric|min:0.01',
+            'unit' => 'nullable|string|max:30',
+            'unit_cost' => 'nullable|numeric|min:0',
+            'purpose' => 'sometimes|string|max:1000',
+            'photo' => 'nullable|image|max:8192',
+        ]);
+
+        if ($request->hasFile('photo')) {
+            Uploads::delete($material->photo);
+            $data['photo'] = Uploads::store($request->file('photo'), 'materials');
+        }
+        if (isset($data['name'])) {
+            $data['name'] = trim($data['name']);
+        }
+
+        // Keep the same "no duplicates" rule when a material is edited.
+        $name = $data['name'] ?? $material->name;
+        $quantity = $data['quantity'] ?? $material->quantity;
+        $unit = array_key_exists('unit', $data) ? $data['unit'] : $material->unit;
+        $duplicate = $workOrder->materials()
+            ->where('id', '!=', $material->id)
+            ->whereRaw('lower(name) = ?', [mb_strtolower($name)])
+            ->where('quantity', $quantity)
+            ->where(fn ($q) => $q->where('unit', $unit)->orWhereNull('unit'))
+            ->exists();
+        if ($duplicate) {
+            throw ValidationException::withMessages(['name' => 'This material is already recorded for this repair.']);
+        }
+
+        $material->update($data);
+        ActivityLog::record('material_updated', "Material updated: {$material->name}.",
+            $request->user(), $workOrder->report, $workOrder);
+
+        return response()->json($material->fresh());
     }
 
     public function deleteMaterial(Request $request, WorkOrderMaterial $material)
     {
         $this->authorizeWork($request, $material->workOrder, true);
+        $this->ensureMaterialsOpen($material->workOrder);
 
+        Uploads::delete($material->photo);
+        $workOrder = $material->workOrder;
+        $name = $material->name;
         $material->delete();
 
+        ActivityLog::record('material_removed', "Material removed: $name.", $request->user(), $workOrder->report, $workOrder);
+
         return response()->noContent();
+    }
+
+    /** "No materials used" requires a written explanation. */
+    public function noMaterials(Request $request, WorkOrder $workOrder)
+    {
+        $this->authorizeWork($request, $workOrder, true);
+        $this->ensureMaterialsOpen($workOrder);
+
+        $data = $request->validate([
+            'reason' => 'required|string|min:5|max:1000',
+        ], [
+            'reason.required' => 'Explain why no materials were used.',
+            'reason.min' => 'Please explain why no materials were used.',
+        ]);
+
+        if ($workOrder->materials()->exists()) {
+            return response()->json(['message' => 'Remove the recorded materials before using "No materials used".'], 422);
+        }
+
+        $workOrder->update(['no_materials_reason' => $data['reason']]);
+        ActivityLog::record('no_materials', "No materials used: {$data['reason']}", $request->user(), $workOrder->report, $workOrder);
+
+        return $this->load($workOrder->fresh());
+    }
+
+    /** Materials can only be changed while the repair is still ongoing. */
+    private function ensureMaterialsOpen(WorkOrder $workOrder): void
+    {
+        if (in_array($workOrder->status, ['completed', 'cancelled'], true)) {
+            abort(422, 'Materials cannot be changed after the repair is completed.');
+        }
+        if (! in_array($workOrder->status, ['in_progress', 'nearing_completion'], true)) {
+            abort(422, 'Start the repair before recording materials.');
+        }
     }
 
     /**
@@ -450,7 +679,7 @@ class WorkOrderController extends Controller
 
         $old = $equipment->condition;
         $new = match ($wo->status) {
-            'in_progress' => 'under_maintenance',
+            'in_progress', 'nearing_completion' => 'under_maintenance',
             'completed' => $wo->condition_after ?: 'operational',
             'pending' => $wo->type === 'corrective' && $old === 'under_maintenance' ? 'needs_repair' : $old,
             default => $old,
@@ -482,6 +711,7 @@ class WorkOrderController extends Controller
 
         $status = match ($wo->status) {
             'in_progress' => 'in_progress',
+            'nearing_completion' => 'nearing_completion',
             'completed' => 'completed',
             default => 'approved',
         };
@@ -530,9 +760,11 @@ class WorkOrderController extends Controller
             'activities.user:id,name,role',
             'assignee:id,name,phone,specialization',
             'creator:id,name',
+            'completer:id,name',
             'report.reporter:id,name,role,phone',
-            'photos',
-            'materials',
+            'photos.uploader:id,name',
+            'stages.user:id,name,role',
+            'materials.uploader:id,name',
         ]);
     }
 }

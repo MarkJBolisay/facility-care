@@ -3,7 +3,7 @@ import { Component, computed, inject, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { ApiService } from '../../core/api.service';
 import { AuthService } from '../../core/auth.service';
-import { WorkOrder, labelOf, toneOf } from '../../core/models';
+import { WorkOrder, REPAIR_STAGES, STAGE_ORDER, labelOf, toneOf } from '../../core/models';
 import { NotificationService } from '../../core/notification.service';
 import { UiService } from '../../core/ui.service';
 import { DashHeroComponent } from '../../shared/dash';
@@ -11,7 +11,7 @@ import { IONIC } from '../../shared/ionic';
 import { SHARED, completeRefresh } from '../../shared/ui';
 
 interface MaintenanceDashboard {
-  tasks: { pending: number; in_progress: number; completed_this_month: number; completed_total: number; overdue: number };
+  tasks: { pending: number; in_progress: number; nearing_completion: number; completed_this_month: number; completed_total: number; overdue: number };
   is_available: boolean;
   next_tasks: WorkOrder[];
 }
@@ -53,7 +53,7 @@ interface MaintenanceDashboard {
               </a>
               <a class="dash-metric primary" routerLink="/tabs/tasks">
                 <span class="dash-metric-icon tint-primary"><ion-icon name="construct-outline" /></span>
-                <strong>{{ d.tasks.in_progress }}</strong><span>In progress</span>
+                <strong>{{ d.tasks.in_progress + d.tasks.nearing_completion }}</strong><span>In progress</span>
               </a>
               <a class="dash-metric danger" routerLink="/tabs/tasks">
                 <span class="dash-metric-icon tint-danger"><ion-icon name="warning-outline" /></span>
@@ -71,7 +71,7 @@ interface MaintenanceDashboard {
           </div>
 
           @if (current(); as w) {
-            <div class="dash-section"><h2>{{ w.status === 'in_progress' ? 'Current job' : 'Next job' }}</h2></div>
+            <div class="dash-section"><h2>{{ w.status === 'in_progress' || w.status === 'nearing_completion' ? 'Current job' : 'Next job' }}</h2></div>
             <a class="dash-card dash-job" [routerLink]="['/work-orders', w.id]">
               @if (w.report?.photo_url) {
                 <div class="dash-job-photo"><img [src]="w.report.photo_url" alt="Photo of the issue" /></div>
@@ -102,7 +102,7 @@ interface MaintenanceDashboard {
                   </div>
                 }
                 <span class="dash-btn">
-                  {{ w.status === 'in_progress' ? 'Continue repair' : 'Start repair' }}
+                  {{ w.status === 'pending' ? 'Start repair' : w.status === 'in_progress' ? 'Continue repair' : 'Finish repair' }}
                   <ion-icon name="arrow-forward-outline" />
                 </span>
               </div>
@@ -138,9 +138,7 @@ interface MaintenanceDashboard {
                   </div>
                 </div>
                 @if (w.status === 'pending') {
-                  <button type="button" class="dash-mini-btn" [disabled]="starting() === w.id" (click)="start(w, $event)">
-                    {{ starting() === w.id ? 'Starting…' : 'Start' }}
-                  </button>
+                  <button type="button" class="dash-mini-btn" (click)="start(w, $event)">Start</button>
                 } @else {
                   <ion-icon name="chevron-forward-outline" class="chev" />
                 }
@@ -176,7 +174,6 @@ export class MaintenanceDashboardPage {
   protected data = signal<MaintenanceDashboard | null>(null);
   protected available = signal(true);
   protected saving = signal(false);
-  protected starting = signal<number | null>(null);
 
   /** The task to focus on: the first one in progress, otherwise the most urgent one. */
   protected current = computed(() => this.data()?.next_tasks[0] ?? null);
@@ -187,13 +184,10 @@ export class MaintenanceDashboardPage {
     return 'Maintenance' + (spec ? ' · ' + labelOf('category', spec) : '');
   });
 
-  /** Same steps as on the work order page: start → before photo → (materials) → after photo → report. */
+  /** Which of the five stages this job is at (1 = reported, 5 = completed). */
   protected nextStep(w: WorkOrder): { n: number; label: string } {
-    const counts = w as WorkOrder & { before_photos_count?: number; after_photos_count?: number };
-    if (w.status !== 'in_progress') return { n: 1, label: 'Start the repair' };
-    if (!counts.before_photos_count) return { n: 2, label: 'Take a "before" photo' };
-    if (!counts.after_photos_count) return { n: 4, label: 'Take an "after" photo' };
-    return { n: 5, label: 'Submit the completion report' };
+    const index = STAGE_ORDER[w.status] ?? 1;
+    return { n: index + 1, label: REPAIR_STAGES[index]?.label ?? '' };
   }
 
   protected isOverdue(w: WorkOrder): boolean {
@@ -225,20 +219,11 @@ export class MaintenanceDashboardPage {
     }
   }
 
-  /** Start a pending task right from the list, then open it. */
+  /** Open the job: the stage form there takes the photo proof before moving on. */
   async start(w: WorkOrder, event: Event): Promise<void> {
     event.preventDefault();
     event.stopPropagation();
-    this.starting.set(w.id);
-    try {
-      await this.api.post(`work-orders/${w.id}/status`, { status: 'in_progress' });
-      await this.ui.toast('Repair started.', 'success');
-      await this.router.navigate(['/work-orders', w.id]);
-    } catch (err) {
-      await this.ui.error(err);
-    } finally {
-      this.starting.set(null);
-    }
+    await this.router.navigate(['/work-orders', w.id]);
   }
 
   async toggleAvailable(event: Event): Promise<void> {
