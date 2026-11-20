@@ -6,5 +6,5 @@
 // mobile data. The address below is only a local Wi-Fi fallback for testing.
 export const environment = {
   production: true,
-  apiUrl: 'http://192.168.100.115:8000/api',
+  apiUrl: 'http://10.242.83.162:8000/api',
 };
