@@ -97,8 +97,11 @@ The app checks for new notifications every 30 seconds (badge on the tab bar).
 
 ## Running on a phone (Android)
 
-1. Find your PC's local IP address (`ipconfig`, e.g. `192.168.1.10`). The phone must be on the same Wi-Fi.
-2. Put it in `frontend/src/environments/environment.prod.ts` → `apiUrl: 'http://192.168.1.10:8000/api'`.
+1. For a real release, host the Laravel backend on a publicly reachable HTTPS address. Set the repository variable
+   `API_URL` (Settings → Secrets and variables → Actions → Variables) to that address, e.g. `https://api.example.com/api`.
+   The Android build workflow injects it into `environment.prod.ts`, so users never enter a server address in the app.
+2. For local Wi-Fi testing only, update `apiUrl` in `frontend/src/environments/environment.prod.ts` to your PC's current
+   LAN address and keep `--host=0.0.0.0` plus a firewall rule for PHP. This will not work on mobile data.
 3. Start the backend with `--host=0.0.0.0` (as shown above) and allow PHP through Windows Firewall.
 4. Build the APK (needs JDK 21 and the Android SDK with platform 36; set `JAVA_HOME`, and `sdk.dir` in `frontend/android/local.properties`):
    ```bash

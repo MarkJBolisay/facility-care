@@ -389,7 +389,7 @@ ion-content.lx { --background: #9cc3ef; }
 .lx-card {
   position: relative; overflow: hidden;
   width: 100%; max-width: 440px;
-  padding: 26px 24px 30px;
+  padding: 26px 24px 26px;
   background: var(--lg-card);
   border: 2px solid var(--lg-yellow);
   border-radius: 30px;
@@ -466,7 +466,7 @@ ion-content.lx { --background: #9cc3ef; }
   }
   .lx-card {
     width: calc(52 * var(--v)); max-width: none;
-    padding: calc(3.5 * var(--v)) calc(4.4 * var(--v)) calc(4 * var(--v));
+    padding: calc(3.5 * var(--v)) calc(4.4 * var(--v)) calc(3.5 * var(--v));
     border-width: calc(0.25 * var(--v));
     border-radius: calc(4.4 * var(--v));
   }
@@ -527,7 +527,7 @@ ion-content.lx { --background: #9cc3ef; }
   .lx.lxr { --u: var(--v); }
   .rg-pair { column-gap: calc(1.6 * var(--v)); }
   .lxr .lx-wrap { padding-top: calc(1.2 * var(--v)); padding-bottom: calc(1.2 * var(--v)); }
-  .lxr .lx-card { width: calc(62 * var(--v)); padding-top: calc(2.6 * var(--v)); padding-bottom: calc(3 * var(--v)); }
+  .lxr .lx-card { width: calc(62 * var(--v)); padding-top: calc(2.6 * var(--v)); padding-bottom: calc(2.6 * var(--v)); }
   .lxr .lx-logo { width: calc(8 * var(--v)); height: calc(8 * var(--v)); }
   .lxr .lx-wordmark { margin-top: calc(0.3 * var(--v)); font-size: calc(3.6 * var(--v)); }
   .lxr .lx-campus { font-size: calc(1.4 * var(--v)); padding-bottom: calc(0.8 * var(--v)); }
@@ -541,12 +541,5 @@ ion-content.lx { --background: #9cc3ef; }
   .lxr .lx-foot { margin-top: calc(1.6 * var(--v)); }
 }
 
-/* "Server: 192.168.x.x:8000 · Change" link under the login / sign-up card (phone app only) */
-.lx-server {
-  display: flex; align-items: center; justify-content: center; gap: 6px;
-  margin: 14px auto 0; padding: 6px 12px;
-  border: 0; border-radius: 999px; background: var(--lg-field);
-  color: var(--lg-text); font: inherit; font-size: 0.8rem; cursor: pointer;
-}
-.lx-server ion-icon { font-size: 15px; }
-.lx-server span { color: var(--lg-blue); font-weight: 700; }
+/* The API address is supplied by environment files only. The old "Server"
+   button (and its styles) are intentionally gone from both auth screens. */
